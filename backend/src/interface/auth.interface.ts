@@ -3,3 +3,9 @@ export interface LoginResult {
   status: number;
   message: string;
 }
+
+export interface JwtPayLoadWithId {
+  id: string;
+  email: string;
+  role: string;
+}

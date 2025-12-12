@@ -2,11 +2,21 @@ import express, { urlencoded } from "express";
 import "dotenv/config.js";
 import dbConnection from "./config/db.config";
 import mainRoute from "./routes/mainRoute";
+import cors from "cors";
+import cookieParser from "cookie-parser";
 
 const app = express();
 
 app.use(urlencoded({ extended: true }));
 app.use(express.json());
+app.use(
+  cors({
+    origin: "*",
+    credentials: true,
+    methods: ["GET", "POST", "DELETE", "PATCH", "PUT"],
+  })
+);
+app.use(cookieParser());
 app.use(mainRoute);
 
 const PORT = process.env.PORT || 3000;
