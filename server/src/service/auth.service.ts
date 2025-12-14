@@ -1,14 +1,16 @@
 import { Request, Response } from "express";
-import { AppDataSource } from "../config/db.config";
-import { userEnity } from "../entities/user.entity";
+
 import { genAcccessToken, genRefreshToken } from "../utils/tokenGen";
-import { comaprePassowrd } from "../helper/passwordHelper";
+import { comparePassword, hashPassword } from "../helper/passwordHelper";
+import AppDataSource from "../config/db.config";
+import { UserEntity } from "../entities/user.entity";
 
-const userRepository = AppDataSource.getRepository(userEnity);
+const userRepository = AppDataSource.getRepository(UserEntity);
 
-const loginService = {
+const authService = {
   async login(req: Request, res: Response) {
     const { email, password } = req.body;
+    console.log(email, password);
 
     try {
       if (!email || !password) {
@@ -32,7 +34,7 @@ const loginService = {
       }
 
       // Here you can add password verification (e.g., bcrypt.compare)
-      const matchPassword = comaprePassowrd(password, existingUser?.password);
+      const matchPassword = comparePassword(password, existingUser?.password);
       if (!matchPassword) {
         return {
           status: false,
@@ -80,6 +82,53 @@ const loginService = {
       };
     }
   },
+
+  async register(req: Request) {
+    const { firstName, lastName, email, phoneNumber, password } = req.body;
+
+    console.log(firstName, lastName, email, phoneNumber, password);
+
+    if (!firstName || !lastName || !email || !phoneNumber || !password) {
+      return {
+        status: false,
+        code: 400,
+        message: "All fields are required",
+      };
+    }
+
+    const existingUser = await userRepository.findOneBy({ email });
+
+    console.log("existingUser", existingUser);
+
+    if (existingUser) {
+      return {
+        status: false,
+        code: 409,
+        message: "User already exists",
+      };
+    }
+
+    const hashedPassword = await hashPassword(password);
+    console.log("hashedpasword", hashedPassword);
+
+    const newUser = userRepository.create({
+      firstName,
+      lastName,
+      email,
+      phoneNumber,
+      password: hashedPassword,
+    });
+
+    console.log("newUser entity:", newUser);
+
+    await userRepository.save(newUser);
+
+    return {
+      status: true,
+      code: 201,
+      message: "User registered successfully. Please login.",
+    };
+  },
 };
 
-export default loginService;
+export default authService;
