@@ -1,11 +1,14 @@
 import { createSlice } from "@reduxjs/toolkit";
-import { userLogin, userSignup } from "../thunk/authThunk";
+import { userLogin, userSignup, verifyOtp } from "../thunk/authThunk";
 
 const initialState = {
   loading: false,
   login: null,
   authenticate: false,
   role: null,
+
+  // otp validation
+  otpValidationLoading: false,
 };
 
 const authSlice = createSlice({
@@ -35,40 +38,17 @@ const authSlice = createSlice({
     builder.addCase(userSignup.rejected, (state) => {
       state.loading = false;
     });
+    builder.addCase(verifyOtp.pending, (state) => {
+      state.otpValidationLoading = true;
+    });
 
-    // //for logout
-    // builder.addCase(userLogut.pending, (state) => {
-    //   state.loading = true;
-    // });
-    // builder.addCase(userLogut.fulfilled, (state) => {
-    //   state.loading = false;
-    //   state.login = null;
-    //   state.authenticate = false;
-    // });
-    // builder.addCase(userLogut.rejected, (state) => {
-    //   state.loading = false;
-    // });
+    builder.addCase(verifyOtp.fulfilled, (state) => {
+      state.otpValidationLoading = false;
+    });
 
-    // //forget password
-    // builder.addCase(forgetPassword.pending, (state) => {
-    //   state.loading = true;
-    // });
-    // builder.addCase(forgetPassword.fulfilled, (state) => {
-    //   state.loading = false;
-    // });
-    // builder.addCase(forgetPassword.rejected, (state) => {
-    //   state.loading = false;
-    // });
-    // //reset token validation
-    // builder.addCase(resetToken.pending, (state) => {
-    //   state.loading = true;
-    // });
-    // builder.addCase(resetToken.fulfilled, (state) => {
-    //   state.loading = false;
-    // });
-    // builder.addCase(resetToken.rejected, (state) => {
-    //   state.loading = false;
-    // });
+    builder.addCase(verifyOtp.rejected, (state) => {
+      state.otpValidationLoading = false;
+    });
   },
 });
 

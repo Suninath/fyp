@@ -11,6 +11,7 @@ import Signup from "./pages/auth/signupPage";
 import { Provider } from "react-redux";
 import HomePage from "./pages/user/home";
 import { store } from "./rtk/store/store";
+import OtpValidationPage from "./pages/auth/veryfyOtp.";
 // import User from "./pages/Admin/user";
 // import UpdateUser from "./pages/Admin/updateUser";
 // import Vehicle from "./pages/Admin/vehicle";
@@ -79,6 +80,17 @@ function App() {
             />
 
             <Route
+              path="/verifyOtp"
+              element={
+                <>
+                  {/* <Header /> */}
+                  <OtpValidationPage />
+                  {/* <Footer /> */}
+                </>
+              }
+            />
+
+            <Route
               path="/home"
               element={
                 <>
@@ -96,5 +108,3 @@ function App() {
 }
 
 export default App;
-
- 
