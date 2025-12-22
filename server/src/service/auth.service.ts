@@ -103,6 +103,16 @@ const authService = {
       return { status: false, code: 400, message: "All fields are required" };
     }
 
+    const emailRegex = /^[a-zA-Z0-9.]+@[a-zA-Z0-9.]+\.[a-zA-Z]{2,}$/;
+
+    if (!emailRegex.test(email)) {
+      return {
+        status: false,
+        code: 400,
+        message: "Email can only contain letters, numbers, dots, and '@'",
+      };
+    }
+
     const existingUser = await userRepository.findOneBy({ email });
 
     if (existingUser) {
