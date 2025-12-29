@@ -162,7 +162,7 @@ function LoginComponent() {
               </span>
 
               <Link
-                to="/forgetpassword"
+                to="/forgetPassword"
                 className="text-purple hover:underline"
               >
                 Forgot password?

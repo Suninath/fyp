@@ -19,7 +19,10 @@ function SignupComponent() {
       .string()
       .required("Enter your email")
       .matches(/^[^\s@]+@[^\s@]+\.[^\s@]+$/, "Invalid email"),
-    phoneNumber: yup.string().required("Enter phone number"),
+    phoneNumber: yup
+      .string()
+      .required("Enter phone number")
+      .matches(/^[0-9]{10}$/, "Phone number must be exactly 10 digits"),
     password: yup.string().required("Enter your password"),
     confirmpassword: yup
       .string()

@@ -33,8 +33,8 @@ import OtpValidationPage from "./pages/auth/veryfyOtp.";
 // import UserBooking from "./pages/User/userpost/usersBooking";
 // import VehicleBooking from "./pages/page/vehicleBooking";
 // import Inbox from "./pages/page/inbox";
-// import ForgetPassword from "./pages/auth/forgetPassword";
-// import ResetPassword from "./pages/auth/resetPassword";
+import ForgetPasswordPage from "./pages/auth/forgetPasswordPage";
+import ResetPasswordPage from "./pages/auth/resetPasswordPage";
 // import AllBooking from "./pages/Admin/allBooking";
 // import BookingDetails from "./pages/Admin/bookingDetails";
 // import VehicleDetail from "./pages/Admin/vehicleDetail";
@@ -85,6 +85,28 @@ function App() {
                 <>
                   {/* <Header /> */}
                   <OtpValidationPage />
+                  {/* <Footer /> */}
+                </>
+              }
+            />
+
+            <Route
+              path="/forgetPassword"
+              element={
+                <>
+                  {/* <Header /> */}
+                  <ForgetPasswordPage />
+                  {/* <Footer /> */}
+                </>
+              }
+            />
+
+            <Route
+              path="/resetPassword"
+              element={
+                <>
+                  {/* <Header /> */}
+                  <ResetPasswordPage />
                   {/* <Footer /> */}
                 </>
               }

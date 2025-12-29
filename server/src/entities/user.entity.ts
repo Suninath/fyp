@@ -13,8 +13,8 @@ export class UserEntity extends BaseEntity {
   @Column({ unique: true, length: 255 })
   email: string;
 
-  @Column({ name: "phonenumber", length: 50, nullable: true })
-  phoneNumber?: string;
+  @Column({ name: "phonenumber", length: 10, nullable: false, unique: true })
+  phoneNumber: string;
 
   @Column()
   password: string;
