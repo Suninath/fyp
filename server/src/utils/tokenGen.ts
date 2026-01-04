@@ -1,34 +1,30 @@
 import jwt from "jsonwebtoken";
 
-const accessToken = process.env.ACCESS_TOKEN;
-const refreshToken = process.env.REFRESH_TOKEN;
+const accessTokenSecret = process.env.ACCESS_TOKEN_SECRET;
+const refreshTokenSecret = process.env.REFRESH_TOKEN_SECRET;
 
-if (!accessToken || !refreshToken) {
-  throw new Error("Not token enviroment variable set");
+if (!accessTokenSecret || !refreshTokenSecret) {
+  throw new Error("Token environment variables not set");
 }
 
-export const genAcccessToken = (payload: Object) => {
-  const token = jwt.sign(payload, accessToken, {
+export const genAccessToken = (payload: Object) => {
+  const token = jwt.sign(payload, accessTokenSecret, {
     expiresIn: "1h",
   });
   return token;
 };
 
 export const genRefreshToken = (payload: Object) => {
-  const token = jwt.sign(payload, refreshToken, {
-    expiresIn: "1h",
+  const token = jwt.sign(payload, refreshTokenSecret, {
+    expiresIn: "7d",
   });
   return token;
 };
 
 export const verifyToken = (token: string, secret: string) => {
   if (!secret) {
-    return {
-      status: false,
-      code: 500,
-      message: "SECRET_KEY is not define int he environment",
-    };
+    throw new Error("SECRET_KEY is not defined in the environment");
   }
 
-  return jwt.sign(token, secret);
+  return jwt.verify(token, secret);
 };

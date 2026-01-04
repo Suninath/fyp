@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 
-import { genAcccessToken, genRefreshToken } from "../utils/tokenGen";
+import { genAccessToken, genRefreshToken } from "../utils/tokenGen";
 import { comparePassword, hashPassword } from "../helper/passwordHelper";
 import AppDataSource from "../config/db.config";
 import { UserEntity } from "../entities/user.entity";
@@ -56,7 +56,7 @@ const authService = {
         };
       }
 
-      const accessToken = genAcccessToken({
+      const accessToken = genAccessToken({
         email: existingUser?.email,
         id: existingUser?.id,
         role: existingUser?.role,

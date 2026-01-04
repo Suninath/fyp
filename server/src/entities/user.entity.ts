@@ -1,6 +1,7 @@
-import { Column, Entity } from "typeorm";
+import { Column, Entity, OneToMany } from "typeorm";
 import { BaseEntity } from "../utils/base.entity";
 import { USER_ROLE } from "../constant/enums";
+import { VehicleEntity } from "./vehicle.entity";
 
 @Entity("users") // table name should match your SQL table
 export class UserEntity extends BaseEntity {
@@ -13,8 +14,8 @@ export class UserEntity extends BaseEntity {
   @Column({ unique: true, length: 255 })
   email: string;
 
-  @Column({ name: "phonenumber", length: 10, nullable: false, unique: true })
-  phoneNumber: string;
+  @Column({ name: "phonenumber", length: 50, nullable: true })
+  phoneNumber?: string;
 
   @Column()
   password: string;
@@ -33,4 +34,7 @@ export class UserEntity extends BaseEntity {
 
   @Column({ type: "timestamp", name: "updatedAt", default: () => "CURRENT_TIMESTAMP", onUpdate: "CURRENT_TIMESTAMP" })
   updatedAt: Date;
+
+  @OneToMany(() => VehicleEntity, vehicle => vehicle.uploader)
+  vehicles: VehicleEntity[];
 }
