@@ -1,40 +1,28 @@
-import { Column, Entity, OneToMany } from "typeorm";
+import { Column, Entity, OneToOne } from "typeorm";
+import { AuthEntity } from "./auth.entity";
 import { BaseEntity } from "../utils/base.entity";
-import { USER_ROLE } from "../constant/enums";
-import { VehicleEntity } from "./vehicle.entity";
 
-@Entity("users") // table name should match your SQL table
+@Entity("users")
 export class UserEntity extends BaseEntity {
-  @Column({ name: "firstname", length: 100 })
-  firstName: string;
 
-  @Column({ name: "lastname", length: 100 })
-  lastName: string;
-
-  @Column({ unique: true, length: 255 })
-  email: string;
+  @Column({ name: "name", length: 100, nullable: true })
+  name?: string;
 
   @Column({ name: "phonenumber", length: 50, nullable: true })
   phoneNumber?: string;
 
-  @Column()
-  password: string;
-
-  @Column({ type: "enum", enum: USER_ROLE, default: USER_ROLE.USER })
-  role: USER_ROLE;
-
-  @Column({ default: false })
-  verified: boolean;
-
   @Column({ name: "profile_image", type: "text", nullable: true })
   profileImage?: string;
 
-  @Column({ type: "timestamp", name: "createdAt", default: () => "CURRENT_TIMESTAMP" })
-  createdAt: Date;
+  @Column({ name: "pan_number", length: 50, nullable: true })
+  panNumber?: string;
 
-  @Column({ type: "timestamp", name: "updatedAt", default: () => "CURRENT_TIMESTAMP", onUpdate: "CURRENT_TIMESTAMP" })
-  updatedAt: Date;
+  @Column({ name: "company_registration_doc", type: "text", nullable: true })
+  companyRegistrationDoc?: string;
 
-  @OneToMany(() => VehicleEntity, vehicle => vehicle.uploader)
-  vehicles: VehicleEntity[];
+  @Column({ name: "payment_status", default: false })
+  paymentStatus: boolean;
+
+  @OneToOne(() => AuthEntity, (auth) => auth.user)
+  auth: AuthEntity;
 }

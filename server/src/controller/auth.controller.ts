@@ -32,7 +32,7 @@ const authController = {
   },
 
   async forgetPassword(req: Request, res: Response) {
-    const result = await authService.forgetPasswword(req);
+    const result = await authService.forgotPassword(req);
     sendResponse(res, {
       status: result?.status,
       message: result?.message,
@@ -47,7 +47,36 @@ const authController = {
       message: result?.message,
       httpCode: result?.code,
     });
-  }
+  },
+
+  async registerStore(req: Request, res: Response) {
+    const result = await authService.registerStore(req);
+    sendResponse(res, {
+      status: result?.status,
+      message: result?.message,
+      httpCode: result?.code,
+    });
+  },
+
+  async authorize(req: Request, res: Response) {
+    const result = await authService.authorize(req);
+    sendResponse(res, {
+      status: result?.status,
+      message: result?.message,
+      httpCode: result?.code,
+      data: result?.data,
+    });
+  },
+
+  async me(req: Request, res: Response) {
+    const result = await authService.me(req);
+    sendResponse(res, {
+      status: result?.status,
+      message: result?.message,
+      httpCode: result?.code,
+      data: result?.data,
+    });
+  },
 };
 
 export default authController;

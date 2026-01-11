@@ -1,11 +1,10 @@
 import { defineConfig } from 'vite'
+import path from 'path'
 
 export default defineConfig({
-  // ...
-  "baseUrl": ".",
-  "paths": {
-    "@/*": [
-      "./src/*"
-    ]
-  }
+  resolve: {
+    alias: {
+      "@": path.resolve(__dirname, "./src"),
+    },
+  },
 })

@@ -1,11 +1,13 @@
 import { createSlice } from "@reduxjs/toolkit";
-import { userLogin, userSignup, verifyOtp } from "../thunk/authThunk";
+import { userLogin, userSignup, verifyOtp, getUserProfile, getAuthorize } from "../thunk/authThunk";
 
 const initialState = {
   loading: false,
+  status: "idle",
   login: null,
   authenticate: false,
   role: null,
+  user: null,
 
   // otp validation
   otpValidationLoading: false,
@@ -21,8 +23,10 @@ const authSlice = createSlice({
     });
     builder.addCase(userLogin.fulfilled, (state, action) => {
       state.loading = false;
-      state.authenticate = true;
-      state.login = action.payload;
+      state.status = "authenticated";
+      state.login = action.payload.role;
+      state.role = action.payload.role?.toLowerCase(); // Store role in lowercase
+      state.authenticate = true; // Set authenticate to true after successful login
     });
     builder.addCase(userLogin.rejected, (state) => {
       state.loading = false;
@@ -48,6 +52,46 @@ const authSlice = createSlice({
 
     builder.addCase(verifyOtp.rejected, (state) => {
       state.otpValidationLoading = false;
+    });
+
+    builder.addCase(getUserProfile.pending, (state) => {
+      state.loading = true;
+    });
+
+    builder.addCase(getUserProfile.fulfilled, (state, action) => {
+      state.loading = false;
+      state.user = action.payload;
+      state.role = action.payload.role?.toLowerCase(); // Store role in lowercase
+      state.authenticate = true;
+    });
+
+    builder.addCase(getUserProfile.rejected, (state) => {
+      state.loading = false;
+      state.authenticate = false;
+      state.user = null;
+      state.role = null;
+    });
+
+    builder.addCase(getAuthorize.pending, (state) => {
+      state.loading = true;
+      state.status = "checking";
+    });
+
+    builder.addCase(getAuthorize.fulfilled, (state, action) => {
+      state.loading = false;
+      state.status = "authenticated";
+      // authorize API now only returns { role: "..." }
+      state.role = action.payload.role?.toLowerCase(); // Store role in lowercase
+      // Don't set user here, will be set by getUserProfile
+      state.authenticate = true;
+    });
+
+    builder.addCase(getAuthorize.rejected, (state) => {
+      state.loading = false;
+      state.status = "failed";
+      state.authenticate = false;
+      state.user = null;
+      state.role = null;
     });
   },
 });

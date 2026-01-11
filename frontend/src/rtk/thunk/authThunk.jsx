@@ -30,6 +30,20 @@ export const userSignup = createAsyncThunk(
   }
 );
 
+export const storeSignup = createAsyncThunk(
+  "store/signup",
+  async (data, { rejectWithValue }) => {
+    try {
+      const resp = await main_uri.post(`/api/v1/auth/registerStore`, data);
+      SucessToast({ message: resp?.data?.message });
+      return resp.data?.data;
+    } catch (error) {
+      ErrorToast({ message: error.response?.data?.message });
+      return rejectWithValue(error.response?.data?.message);
+    }
+  }
+);
+
 export const verifyOtp = createAsyncThunk(
   "verify/otp",
   async (data, { rejectWithValue }) => {
@@ -69,6 +83,32 @@ export const resetPassword = createAsyncThunk(
     } catch (error) {
       ErrorToast({ message: error.response?.data?.message });
       return rejectWithValue(error.response?.data?.message);
+    }
+  }
+);
+
+export const getUserProfile = createAsyncThunk(
+  "user/profile",
+  async (_, { rejectWithValue }) => {
+    try {
+      const resp = await main_uri.get(`/api/v1/auth/me`);
+      return resp.data?.data;
+    } catch (error) {
+      console.error("Failed to fetch user profile:", error);
+      return rejectWithValue(error.response?.data?.message || "Failed to fetch user profile");
+    }
+  }
+);
+
+export const getAuthorize = createAsyncThunk(
+  "user/authorize",
+  async (_, { rejectWithValue }) => {
+    try {
+      const resp = await main_uri.get(`/api/v1/auth/authorize`);
+      return resp.data?.data;
+    } catch (error) {
+      console.error("Authorization failed:", error);
+      return rejectWithValue(error.response?.data?.message || "Authorization failed");
     }
   }
 );

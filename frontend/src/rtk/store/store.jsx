@@ -8,6 +8,7 @@ import storage from "redux-persist/lib/storage";
 // import conversationSlice from "../conversation/conversationSlice";
 // import messageSlice from "../message/messageSlice";
 import authSlice from "../slice/authSlice";
+import adminSlice from "../slice/adminSlice";
 // import chartSlice from "../charts/chartSlice";
 // import feedBackSlice from "../contact/feedBackSlice";
 const persistConfig = {
@@ -18,6 +19,7 @@ const persistConfig = {
 // Apply persist configuration only to the login slice
 const rootReducer = combineReducers({
   auth: persistReducer(persistConfig, authSlice),
+  admin: adminSlice,
   //   user: userslice,
   //   vehicle: vehicleslice,
   //   comment: commentSlice,

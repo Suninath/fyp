@@ -2,6 +2,11 @@ import { Entity, Column, ManyToOne } from "typeorm";
 import { BaseEntity } from "../utils/base.entity";
 import { UserEntity } from "./user.entity";
 
+export enum VEHICLE_CATEGORY {
+  BUY_SELL = "Buy/Sell",
+  RENTING = "Renting",
+}
+
 @Entity("vehicle")
 export class VehicleEntity extends BaseEntity {
   @Column({ length: 255 })
@@ -42,6 +47,12 @@ export class VehicleEntity extends BaseEntity {
 
   @Column({ type: "text", array: true, nullable: true })
   images?: string[];
+
+  @Column({ type: "enum", enum: VEHICLE_CATEGORY, default: VEHICLE_CATEGORY.BUY_SELL })
+  category: VEHICLE_CATEGORY;
+
+  @Column({ name: "is_blocked", default: false })
+  isBlocked: boolean;
 
   @ManyToOne(() => UserEntity, { onDelete: "CASCADE" })
   uploader: UserEntity;

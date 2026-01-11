@@ -13,8 +13,7 @@ function SignupComponent() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const signupSchema = yup.object({
-    firstName: yup.string().required("Enter your first name"),
-    lastName: yup.string().required("Enter your last name"),
+    name: yup.string().required("Enter your full name"),
     email: yup
       .string()
       .required("Enter your email")
@@ -85,30 +84,17 @@ function SignupComponent() {
             autoComplete="off"
             className="px-6 py-4 space-y-3"
           >
-            {/* Name Fields */}
-            <div className="flex gap-3">
-              <div className="flex-1 flex flex-col">
-                <label className="text-sm font-medium text-gray-700">First Name</label>
-                <input
-                  type="text"
-                  {...register("firstName")}
-                  className={`mt-1 w-full h-9 px-3 rounded-md border ${
-                    errors.firstName ? "border-red" : "border-gray-300"
-                  } focus:outline-none focus:ring-2 focus:ring-purple focus:border-purple`}
-                />
-                <p className="mt-1 text-xs text-red min-h-[1rem]">{errors.firstName?.message || " "}</p>
-              </div>
-              <div className="flex-1 flex flex-col">
-                <label className="text-sm font-medium text-gray-700">Last Name</label>
-                <input
-                  type="text"
-                  {...register("lastName")}
-                  className={`mt-1 w-full h-9 px-3 rounded-md border ${
-                    errors.lastName ? "border-red" : "border-gray-300"
-                  } focus:outline-none focus:ring-2 focus:ring-purple focus:border-purple`}
-                />
-                <p className="mt-1 text-xs text-red min-h-[1rem]">{errors.lastName?.message || " "}</p>
-              </div>
+            {/* Name Field */}
+            <div className="flex flex-col">
+              <label className="text-sm font-medium text-gray-700">Full Name</label>
+              <input
+                type="text"
+                {...register("name")}
+                className={`mt-1 w-full h-9 px-3 rounded-md border ${
+                  errors.name ? "border-red" : "border-gray-300"
+                } focus:outline-none focus:ring-2 focus:ring-purple focus:border-purple`}
+              />
+              <p className="mt-1 text-xs text-red min-h-[1rem]">{errors.name?.message || " "}</p>
             </div>
 
             {/* Email */}
