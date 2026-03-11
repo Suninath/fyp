@@ -13,7 +13,9 @@ router.post("/registerStore", auth_controller_1.default.registerStore);
 router.post("/verifyOtp", auth_controller_1.default.verifyOtp);
 router.post("/forgetPassword", auth_controller_1.default.forgetPassword);
 router.post("/resetPassword", auth_controller_1.default.resetPassword);
+router.post("/logout", auth_controller_1.default.logout);
 // Protected routes
 router.get("/authorize", authMiddleware_1.authenticationMiddeware, auth_controller_1.default.authorize);
 router.get("/me", authMiddleware_1.authenticationMiddeware, auth_controller_1.default.me);
+router.put("/profile", authMiddleware_1.authenticationMiddeware, auth_controller_1.default.updateProfile);
 exports.default = router;

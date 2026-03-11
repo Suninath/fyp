@@ -91,7 +91,8 @@ const adminService = {
                     code: 200,
                     data: stores.map(store => ({
                         id: store.id,
-                        name: store.name,
+                        storeName: store.name,
+                        ownerName: store.name, // For now, using name as both store and owner name since we don't have separate fields
                         email: store.auth.email,
                         phoneNumber: store.phoneNumber,
                         role: store.auth.role,
@@ -99,6 +100,7 @@ const adminService = {
                         panNumber: store.panNumber,
                         companyRegistrationDoc: store.companyRegistrationDoc,
                         paymentStatus: store.paymentStatus,
+                        isVerified: store.auth.verified,
                         isBlocked: store.auth.isBlocked,
                         createdAt: store.createdAt
                     })),
@@ -347,7 +349,9 @@ const adminService = {
         return __awaiter(this, arguments, void 0, function* ({ search, brand, color, page = 1, limit = 10 }) {
             try {
                 const queryBuilder = vehicleRepository.createQueryBuilder("vehicle")
-                    .leftJoinAndSelect("vehicle.uploader", "uploader");
+                    .leftJoinAndSelect("vehicle.uploader", "uploader")
+                    .leftJoin("uploader.auth", "uploaderAuth")
+                    .addSelect(["uploaderAuth.email"]);
                 // Apply filters
                 if (search) {
                     queryBuilder.andWhere("(vehicle.name ILIKE :search OR vehicle.make ILIKE :search OR vehicle.model ILIKE :search)", { search: `%${search}%` });
@@ -388,11 +392,11 @@ const adminService = {
                             category: vehicle.category,
                             isBlocked: vehicle.isBlocked,
                             createdAt: vehicle.createdAt,
-                            uploader: {
+                            uploader: vehicle.uploader ? {
                                 id: vehicle.uploader.id,
                                 name: vehicle.uploader.name,
                                 email: (_a = vehicle.uploader.auth) === null || _a === void 0 ? void 0 : _a.email
-                            }
+                            } : null
                         });
                     }),
                     pagination: {

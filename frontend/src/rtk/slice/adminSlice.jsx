@@ -13,7 +13,15 @@ import {
   unblockVehicle,
   deleteVehicle,
   updateUser,
-  deleteUser
+  deleteUser,
+  getPendingVerificationUsers,
+  verifyUserAccount,
+  getUsersByVerificationStatus,
+  getAllBookings,
+  updateBookingStatus,
+  getBookingStats,
+  getAllPayments,
+  getPaymentStats
 } from "../thunk/adminThunk";
 
 const initialState = {
@@ -22,27 +30,81 @@ const initialState = {
     totalStores: 0,
     totalVehicles: 0,
     totalRevenue: 0,
+    verifiedUsers: 0,
+    pendingVerificationUsers: 0,
+    rejectedVerificationUsers: 0,
+    pendingDocuments: 0,
+    approvedDocuments: 0,
+    rejectedDocuments: 0,
   },
   users: [],
   userPagination: {
-    page: 1,
-    limit: 10,
-    total: 0,
-    totalPages: 0
+    currentPage: 1,
+    perpage: 10,
+    count: 0,
+    totalPages: 1
+  },
+  pendingUsers: [],
+  pendingUsersPagination: {
+    currentPage: 1,
+    perpage: 10,
+    count: 0,
+    totalPages: 1
+  },
+  verificationUsers: [],
+  verificationUsersPagination: {
+    currentPage: 1,
+    perpage: 10,
+    count: 0,
+    totalPages: 1
   },
   stores: [],
   storePagination: {
-    page: 1,
-    limit: 10,
-    total: 0,
-    totalPages: 0
+    currentPage: 1,
+    perpage: 10,
+    count: 0,
+    totalPages: 1
   },
   vehicles: [],
   vehiclePagination: {
-    page: 1,
-    limit: 10,
+    currentPage: 1,
+    perpage: 10,
+    count: 0,
+    totalPages: 1
+  },
+  bookings: [],
+  bookingPagination: {
+    currentPage: 1,
+    perpage: 10,
+    count: 0,
+    totalPages: 1
+  },
+  bookingStats: {
     total: 0,
-    totalPages: 0
+    pending: 0,
+    confirmed: 0,
+    completed: 0,
+    cancelled: 0,
+    totalRevenue: 0
+  },
+  payments: [],
+  paymentPagination: {
+    currentPage: 1,
+    perpage: 10,
+    count: 0,
+    totalPages: 1
+  },
+  paymentStats: {
+    total: 0,
+    pending: 0,
+    success: 0,
+    failed: 0,
+    cancelled: 0,
+    totalRevenue: 0,
+    byMethod: {
+      esewa: 0,
+      khalti: 0
+    }
   },
   loading: false,
   error: null,
@@ -77,14 +139,8 @@ const adminSlice = createSlice({
       })
       .addCase(getAllUsers.fulfilled, (state, action) => {
         state.loading = false;
-        console.log("action.payload",action.payload);
-        state.users = action.payload || [];
-        state.userPagination = {
-          page: action.payload?.pagination?.currentPage || 1,
-          limit: action.payload?.pagination?.perpage || 10,
-          total: action.payload?.pagination?.count || 0,
-          totalPages: action.payload?.pagination?.totalPages || 1
-        };
+        state.users = action.payload?.data || [];
+        state.userPagination = action.payload?.pagination || initialState.userPagination;
       })
       .addCase(getAllUsers.rejected, (state, action) => {
         state.loading = false;
@@ -98,12 +154,7 @@ const adminSlice = createSlice({
       .addCase(getAllStores.fulfilled, (state, action) => {
         state.loading = false;
         state.stores = action.payload?.data || [];
-        state.storePagination = {
-          page: action.payload?.pagination?.currentPage || 1,
-          limit: action.payload?.pagination?.perpage || 10,
-          total: action.payload?.pagination?.count || 0,
-          totalPages: action.payload?.pagination?.totalPages || 1
-        };
+        state.storePagination = action.payload?.pagination || initialState.storePagination;
       })
       .addCase(getAllStores.rejected, (state, action) => {
         state.loading = false;
@@ -163,12 +214,7 @@ const adminSlice = createSlice({
       .addCase(getAllVehicles.fulfilled, (state, action) => {
         state.loading = false;
         state.vehicles = action.payload?.data || [];
-        state.vehiclePagination = {
-          page: action.payload?.pagination?.currentPage || 1,
-          limit: action.payload?.pagination?.perpage || 10,
-          total: action.payload?.pagination?.count || 0,
-          totalPages: action.payload?.pagination?.totalPages || 1
-        };
+        state.vehiclePagination = action.payload?.pagination || initialState.vehiclePagination;
       })
       .addCase(getAllVehicles.rejected, (state, action) => {
         state.loading = false;
@@ -212,6 +258,104 @@ const adminSlice = createSlice({
       .addCase(deleteUser.fulfilled, (state, action) => {
         const { userId } = action.payload;
         state.users = state.users.filter(u => u.id !== userId);
+      })
+
+      // Get Pending Verification Users
+      .addCase(getPendingVerificationUsers.pending, (state) => {
+        state.loading = true;
+      })
+      .addCase(getPendingVerificationUsers.fulfilled, (state, action) => {
+        state.loading = false;
+        state.pendingUsers = action.payload?.data || [];
+        state.pendingUsersPagination = action.payload?.pagination || initialState.pendingUsersPagination;
+      })
+      .addCase(getPendingVerificationUsers.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+
+      // Verify User Account
+      .addCase(verifyUserAccount.fulfilled, (state, action) => {
+        const { userId } = action.payload;
+        state.pendingUsers = state.pendingUsers.filter(u => u.id !== userId);
+        state.verificationUsers = state.verificationUsers.filter(u => u.id !== userId);
+      })
+
+      // Get Users by Verification Status
+      .addCase(getUsersByVerificationStatus.pending, (state) => {
+        state.loading = true;
+      })
+      .addCase(getUsersByVerificationStatus.fulfilled, (state, action) => {
+        state.loading = false;
+        state.verificationUsers = action.payload?.data || [];
+        state.verificationUsersPagination = action.payload?.pagination || initialState.verificationUsersPagination;
+      })
+      .addCase(getUsersByVerificationStatus.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+
+      // Get All Bookings
+      .addCase(getAllBookings.pending, (state) => {
+        state.loading = true;
+      })
+      .addCase(getAllBookings.fulfilled, (state, action) => {
+        state.loading = false;
+        state.bookings = action.payload?.data || [];
+        state.bookingPagination = action.payload?.pagination || initialState.bookingPagination;
+      })
+      .addCase(getAllBookings.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+
+      // Update Booking Status
+      .addCase(updateBookingStatus.fulfilled, (state, action) => {
+        const { bookingId, status } = action.payload;
+        const bookingIndex = state.bookings.findIndex(b => b.id === bookingId);
+        if (bookingIndex !== -1) {
+          state.bookings[bookingIndex].status = status;
+        }
+      })
+
+      // Get Booking Stats
+      .addCase(getBookingStats.pending, (state) => {
+        state.loading = true;
+      })
+      .addCase(getBookingStats.fulfilled, (state, action) => {
+        state.loading = false;
+        state.bookingStats = action.payload || initialState.bookingStats;
+      })
+      .addCase(getBookingStats.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+
+      // Get All Payments
+      .addCase(getAllPayments.pending, (state) => {
+        state.loading = true;
+      })
+      .addCase(getAllPayments.fulfilled, (state, action) => {
+        state.loading = false;
+        state.payments = action.payload?.data || [];
+        state.paymentPagination = action.payload?.pagination || initialState.paymentPagination;
+      })
+      .addCase(getAllPayments.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+
+      // Get Payment Stats
+      .addCase(getPaymentStats.pending, (state) => {
+        state.loading = true;
+      })
+      .addCase(getPaymentStats.fulfilled, (state, action) => {
+        state.loading = false;
+        state.paymentStats = action.payload || initialState.paymentStats;
+      })
+      .addCase(getPaymentStats.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
       });
   },
 });

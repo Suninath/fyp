@@ -1,5 +1,18 @@
 import { v2 as cloudinary } from 'cloudinary';
 
+// Validate required envs early to avoid silent failures
+const requiredEnv = [
+  'CLOUDINARY_CLOUD_NAME',
+  'CLOUDINARY_API_KEY',
+  'CLOUDINARY_API_SECRET'
+];
+
+requiredEnv.forEach((key) => {
+  if (!process.env[key]) {
+    console.error(`[Cloudinary] Missing env ${key}.`);
+  }
+});
+
 // Configure Cloudinary
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,

@@ -6,13 +6,23 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.handleMulterError = exports.uploadFields = exports.uploadMultiple = exports.uploadSingle = void 0;
 const multer_1 = __importDefault(require("multer"));
 const path_1 = __importDefault(require("path"));
+const fs_1 = __importDefault(require("fs"));
 // Define allowed file types
 const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png'];
 const allowedExtensions = ['.jpg', '.jpeg', '.png'];
+// Ensure uploads directory exists
+const uploadsDir = path_1.default.join(__dirname, '../../uploads');
+if (!fs_1.default.existsSync(uploadsDir)) {
+    fs_1.default.mkdirSync(uploadsDir, { recursive: true });
+}
 // Configure storage
 const storage = multer_1.default.diskStorage({
     destination: (req, file, cb) => {
-        cb(null, 'uploads/'); // Make sure this directory exists
+        // Create uploads directory if it doesn't exist
+        if (!fs_1.default.existsSync(uploadsDir)) {
+            fs_1.default.mkdirSync(uploadsDir, { recursive: true });
+        }
+        cb(null, uploadsDir);
     },
     filename: (req, file, cb) => {
         // Generate unique filename with timestamp

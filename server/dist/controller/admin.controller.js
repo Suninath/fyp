@@ -18,7 +18,7 @@ const adminController = {
     getAllUsers(req, res) {
         return __awaiter(this, void 0, void 0, function* () {
             const { search, page = 1, limit = 10 } = req.query;
-            const result = yield admin_service_1.default.getAllUsers({ search, page: Number(page), limit: Number(limit) });
+            const result = yield admin_service_1.default.getAllUsers({ search: search, page: Number(page), limit: Number(limit) });
             (0, responseHandler_1.sendResponse)(res, {
                 status: result.status,
                 message: result.message || "Users retrieved successfully",
@@ -30,8 +30,8 @@ const adminController = {
     },
     getAllStores(req, res) {
         return __awaiter(this, void 0, void 0, function* () {
-            const { search } = req.query;
-            const result = yield admin_service_1.default.getAllStores({ search, page: Number(page), limit: Number(limit) });
+            const { search, page = 1, limit = 10 } = req.query;
+            const result = yield admin_service_1.default.getAllStores({ search: search, page: Number(page), limit: Number(limit) });
             (0, responseHandler_1.sendResponse)(res, {
                 status: result.status,
                 message: result.message || "Stores retrieved successfully",
@@ -110,7 +110,13 @@ const adminController = {
     getAllVehicles(req, res) {
         return __awaiter(this, void 0, void 0, function* () {
             const { search, brand, color, page = 1, limit = 10 } = req.query;
-            const result = yield admin_service_1.default.getAllVehicles({ search, brand, color, page: Number(page), limit: Number(limit) });
+            const result = yield admin_service_1.default.getAllVehicles({
+                search: search,
+                brand: brand,
+                color: color,
+                page: Number(page),
+                limit: Number(limit)
+            });
             (0, responseHandler_1.sendResponse)(res, {
                 status: result.status,
                 message: result.message || "Vehicles retrieved successfully",

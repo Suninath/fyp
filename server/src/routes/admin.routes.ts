@@ -13,14 +13,11 @@ router.get("/dashboard/stats", adminController.getDashboardStats);
 
 // User management
 router.get("/users", adminController.getAllUsers);
+router.get("/users/pending-verification", adminController.getPendingVerificationUsers);
+router.get("/users/verification-status", adminController.getUsersByVerificationStatus);
 router.patch("/users/:userId/block", adminController.blockUser);
 router.patch("/users/:userId/unblock", adminController.unblockUser);
-
-// Store management
-router.get("/stores", adminController.getAllStores);
-router.patch("/stores/:storeId/verify", adminController.verifyStore);
-router.patch("/stores/:storeId/block", adminController.blockStore);
-router.patch("/stores/:storeId/unblock", adminController.unblockStore);
+router.patch("/users/:userId/verify", adminController.verifyUserAccount);
 
 // Vehicle management
 router.get("/vehicles", adminController.getAllVehicles);
@@ -31,5 +28,14 @@ router.delete("/vehicles/:vehicleId", adminController.deleteVehicle);
 // User management with edit
 router.put("/users/:userId", adminController.updateUser);
 router.delete("/users/:userId", adminController.deleteUser);
+
+// Booking management
+router.get("/bookings", adminController.getAllBookings);
+router.get("/bookings/stats", adminController.getBookingStats);
+router.patch("/bookings/:bookingId/status", adminController.updateBookingStatus);
+
+// Payment management
+router.get("/payments", adminController.getAllPayments);
+router.get("/payments/stats", adminController.getPaymentStats);
 
 export default router;

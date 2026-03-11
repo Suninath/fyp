@@ -66,6 +66,16 @@ const authController = {
             });
         });
     },
+    logout(req, res) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const result = yield auth_service_1.default.logout(req, res);
+            (0, responseHandler_1.sendResponse)(res, {
+                status: result === null || result === void 0 ? void 0 : result.status,
+                message: result === null || result === void 0 ? void 0 : result.message,
+                httpCode: result === null || result === void 0 ? void 0 : result.code,
+            });
+        });
+    },
     registerStore(req, res) {
         return __awaiter(this, void 0, void 0, function* () {
             const result = yield auth_service_1.default.registerStore(req);
@@ -90,6 +100,17 @@ const authController = {
     me(req, res) {
         return __awaiter(this, void 0, void 0, function* () {
             const result = yield auth_service_1.default.me(req);
+            (0, responseHandler_1.sendResponse)(res, {
+                status: result === null || result === void 0 ? void 0 : result.status,
+                message: result === null || result === void 0 ? void 0 : result.message,
+                httpCode: result === null || result === void 0 ? void 0 : result.code,
+                data: result === null || result === void 0 ? void 0 : result.data,
+            });
+        });
+    },
+    updateProfile(req, res) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const result = yield auth_service_1.default.updateProfile(req);
             (0, responseHandler_1.sendResponse)(res, {
                 status: result === null || result === void 0 ? void 0 : result.status,
                 message: result === null || result === void 0 ? void 0 : result.message,

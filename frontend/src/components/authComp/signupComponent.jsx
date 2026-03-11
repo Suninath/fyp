@@ -45,7 +45,7 @@ function SignupComponent() {
   };
 
   return (
-    <div className="min-h-screen grid grid-cols-1 lg:grid-cols-2 bg-gray-100">
+    <div className="min-h-screen grid grid-cols-1 lg:grid-cols-2 bg-gray-50">
       {/* Left – Vehicle Image & Branding */}
       <div className="relative hidden lg:flex">
         <img
@@ -54,11 +54,11 @@ function SignupComponent() {
           className="absolute inset-0 h-full w-full object-cover"
         />
         <div className="absolute inset-0 bg-gray-900/50" />
-        <div className="relative z-10 flex flex-col justify-center px-16 text-white">
-          <h1 className="text-4xl font-semibold tracking-tight">
+        <div className="relative z-10 flex flex-col justify-center px-12 xl:px-16 text-white">
+          <h1 className="text-3xl xl:text-4xl font-semibold tracking-tight">
             Welcome to Vehicle Marketplace
           </h1>
-          <p className="mt-4 text-lg text-gray-300 max-w-sm leading-relaxed">
+          <p className="mt-4 text-base xl:text-lg text-gray-300 max-w-sm leading-relaxed">
             Sign up to buy, sell, and rent vehicles easily and securely.
           </p>
           <div className="mt-6 space-y-2 text-sm text-gray-300">
@@ -70,11 +70,11 @@ function SignupComponent() {
       </div>
 
       {/* Right – Signup Form */}
-      <div className="flex items-center justify-center px-6 lg:px-10">
-        <div className="w-full max-w-md bg-white border border-gray-200 rounded-lg shadow-md py-6">
+      <div className="flex items-center justify-center px-4 sm:px-6 lg:px-10 py-8 sm:py-12">
+        <div className="w-full max-w-md bg-white border border-gray-200 rounded-lg shadow-lg py-5 sm:py-6">
           {/* Header */}
-          <div className="px-6 pb-4 border-b border-gray-200">
-            <h2 className="text-2xl font-semibold text-gray-900">Create Account</h2>
+          <div className="px-5 sm:px-6 pb-4 border-b border-gray-200">
+            <h2 className="text-xl sm:text-2xl font-semibold text-gray-900">Create Account</h2>
             <p className="mt-1 text-sm text-gray-600">Fill in your details to get started</p>
           </div>
 
@@ -82,15 +82,14 @@ function SignupComponent() {
           <form
             onSubmit={handleSubmit(onSubmit)}
             autoComplete="off"
-            className="px-6 py-4 space-y-3"
-          >
+            className="px-5 sm:px-6 py-4 space-y-3">
             {/* Name Field */}
             <div className="flex flex-col">
               <label className="text-sm font-medium text-gray-700">Full Name</label>
               <input
                 type="text"
                 {...register("name")}
-                className={`mt-1 w-full h-9 px-3 rounded-md border ${
+                className={`mt-1 w-full h-9 px-3 rounded-md border text-sm sm:text-base ${
                   errors.name ? "border-red" : "border-gray-300"
                 } focus:outline-none focus:ring-2 focus:ring-purple focus:border-purple`}
               />
@@ -167,9 +166,16 @@ function SignupComponent() {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full h-10 rounded-md bg-purple text-white text-sm font-semibold tracking-wide hover:opacity-90 disabled:opacity-70 transition"
+              className="w-full h-10 rounded-lg bg-purple hover:opacity-90 text-white text-sm font-bold tracking-wide shadow-lg disabled:opacity-70 disabled:cursor-not-allowed transition-all hover:scale-[1.02] active:scale-95"
             >
-              {isSubmitting ? "Signing up..." : "Sign up"}
+              {isSubmitting ? (
+                <span className="flex items-center justify-center">
+                  <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                  Signing up...
+                </span>
+              ) : (
+                "Sign up"
+              )}
             </button>
 
             {/* Footer */}

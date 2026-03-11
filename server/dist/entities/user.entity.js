@@ -21,9 +21,21 @@ __decorate([
     __metadata("design:type", String)
 ], UserEntity.prototype, "name", void 0);
 __decorate([
+    (0, typeorm_1.Column)({ name: "store_name", length: 100, nullable: true }),
+    __metadata("design:type", String)
+], UserEntity.prototype, "storeName", void 0);
+__decorate([
     (0, typeorm_1.Column)({ name: "phonenumber", length: 50, nullable: true }),
     __metadata("design:type", String)
 ], UserEntity.prototype, "phoneNumber", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ name: "phone", length: 50, nullable: true }),
+    __metadata("design:type", String)
+], UserEntity.prototype, "phone", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ name: "address", type: "text", nullable: true }),
+    __metadata("design:type", String)
+], UserEntity.prototype, "address", void 0);
 __decorate([
     (0, typeorm_1.Column)({ name: "profile_image", type: "text", nullable: true }),
     __metadata("design:type", String)

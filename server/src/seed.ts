@@ -36,7 +36,6 @@ async function seedDatabase() {
     const adminUser = userRepo.create({
       name: "System Administrator",
       phoneNumber: "1234567890",
-      paymentStatus: true,
     });
     await userRepo.save(adminUser);
 
@@ -44,7 +43,6 @@ async function seedDatabase() {
       email: "admin@autogear.com",
       password: await hashPassword("admin123"),
       role: USER_ROLE.ADMIN,
-      verified: true,
       user: adminUser,
     });
     await authRepo.save(adminAuth);
@@ -74,7 +72,6 @@ async function seedDatabase() {
       const user = userRepo.create({
         name: u.name,
         phoneNumber: u.phoneNumber,
-        paymentStatus: false,
       });
       await userRepo.save(user);
 
@@ -82,7 +79,6 @@ async function seedDatabase() {
         email: u.email,
         password: await hashPassword("user123"),
         role: USER_ROLE.USER,
-        verified: true,
         user,
       });
       await authRepo.save(auth);
@@ -117,26 +113,6 @@ async function seedDatabase() {
         paymentStatus: false,
       },
     ];
-
-    for (const s of stores) {
-      const storeUser = userRepo.create({
-        name: s.name,
-        phoneNumber: s.phoneNumber,
-        panNumber: s.panNumber,
-        companyRegistrationDoc: s.companyRegistrationDoc,
-        paymentStatus: s.paymentStatus,
-      });
-      await userRepo.save(storeUser);
-
-      const storeAuth = authRepo.create({
-        email: s.email,
-        password: await hashPassword("store123"),
-        role: USER_ROLE.STORE,
-        verified: true,
-        user: storeUser,
-      });
-      await authRepo.save(storeAuth);
-    }
 
     console.log("Stores seeded");
     console.log("✅ Database seeding completed");

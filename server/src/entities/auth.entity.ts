@@ -14,11 +14,20 @@ export class AuthEntity extends BaseEntity {
   @Column({ type: "enum", enum: USER_ROLE, default: USER_ROLE.USER })
   role: USER_ROLE;
 
-  @Column({ default: false })
-  verified: boolean;
+  @Column({ name: "email_verified", default: false })
+  emailVerified: boolean;
+
+  @Column({ name: "account_verified", default: false })
+  accountVerified: boolean;
 
   @Column({ name: "is_blocked", default: false })
   isBlocked: boolean;
+
+  @Column({ name: "verification_rejected", default: false })
+  verificationRejected: boolean;
+
+  @Column({ name: "rejection_reason", nullable: true })
+  rejectionReason?: string;
 
   @OneToOne(() => UserEntity, user => user.auth)
   @JoinColumn({ name: "user_id" }) // 🔑 FK HERE

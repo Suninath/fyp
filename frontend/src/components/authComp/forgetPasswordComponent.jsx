@@ -84,9 +84,16 @@ function ForgetPasswordComponent() {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full h-10 rounded-md bg-purple text-white text-sm font-semibold tracking-wide hover:opacity-90 disabled:opacity-70 transition"
+              className="w-full h-10 rounded-lg bg-purple hover:opacity-90 text-white text-sm font-bold tracking-wide shadow-lg disabled:opacity-70 disabled:cursor-not-allowed transition-all hover:scale-[1.02] active:scale-95"
             >
-              {isSubmitting ? "Sending..." : "Send Reset Code"}
+              {isSubmitting ? (
+                <span className="flex items-center justify-center">
+                  <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                  Sending...
+                </span>
+              ) : (
+                "Send Reset Code"
+              )}
             </button>
 
             {/* Footer */}

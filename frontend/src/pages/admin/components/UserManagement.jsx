@@ -11,6 +11,9 @@ import {
   UserX,
   Save,
   X,
+  Eye,
+  Calendar,
+  Users,
 } from "lucide-react";
 
 import { Button } from "../../../ui/ui/button";
@@ -30,10 +33,12 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "../../../ui/ui/dialog";
 
 import AdminLayout from "./AdminLayout";
 import DebouncedInput from "../../../components/common/DebouncedInput";
+import ConfirmDialog from "../../../components/common/ConfirmDialog";
 
 import {
   getAllUsers,
@@ -61,7 +66,10 @@ const UserManagement = () => {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
   const [deleteUserId, setDeleteUserId] = useState(null);
+  const [deleteUserName, setDeleteUserName] = useState("");
   const [actionLoading, setActionLoading] = useState(null);
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [isUserDetailsOpen, setIsUserDetailsOpen] = useState(false);
 
   useEffect(() => {
     dispatch(getAllUsers({ page, limit: 10, search }));
@@ -189,19 +197,34 @@ const UserManagement = () => {
                       <div className="flex gap-2">
                         <Button
                           size="sm"
+                          variant="info"
+                          onClick={() => {
+                            setSelectedUser(user);
+                            setIsUserDetailsOpen(true);
+                          }}
+                          className="hover:scale-105 transition-transform"
+                          title="View Details"
+                        >
+                          <Eye size={14} />
+                        </Button>
+
+                        <Button
+                          size="sm"
                           variant="outline"
                           onClick={() => handleEdit(user)}
+                          className="hover:scale-105 transition-transform hover:border-purple-500"
                         >
                           <Edit size={14} />
                         </Button>
 
                         <Button
                           size="sm"
-                          variant={user.isBlocked ? "default" : "destructive"}
+                          variant={user.isBlocked ? "success" : "warning"}
                           onClick={() =>
                             handleBlockUnblock(user.id, user.isBlocked)
                           }
                           disabled={actionLoading === user.id}
+                          className="hover:scale-105 transition-transform"
                         >
                           {actionLoading === user.id ? (
                             <RefreshCw size={14} className="animate-spin" />
@@ -215,7 +238,11 @@ const UserManagement = () => {
                         <Button
                           size="sm"
                           variant="destructive"
-                          onClick={() => setDeleteUserId(user.id)}
+                          onClick={() => {
+                            setDeleteUserId(user.id);
+                            setDeleteUserName(user.name);
+                          }}
+                          className="hover:scale-105 transition-transform"
                         >
                           <Trash2 size={14} />
                         </Button>
@@ -228,7 +255,7 @@ const UserManagement = () => {
           )}
 
           {/* Pagination */}
-          {userPagination?.totalPages > 1 && (
+          {userPagination?.totalPages >0 && (
             <div className="flex justify-between items-center mt-6">
               <span className="text-sm text-gray-600">
                 Page {page} of {userPagination.totalPages}
@@ -308,43 +335,160 @@ const UserManagement = () => {
         </DialogContent>
       </Dialog>
 
-      {/* DELETE CONFIRMATION DIALOG */}
-      <Dialog open={!!deleteUserId} onOpenChange={() => setDeleteUserId(null)}>
-        <DialogContent className="bg-white rounded-xl shadow-xl max-w-sm">
+      {/* USER DETAILS DIALOG */}
+      <Dialog open={isUserDetailsOpen} onOpenChange={setIsUserDetailsOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-white">
           <DialogHeader>
-            <DialogTitle className="text-lg font-semibold">
-              Delete User
+            <DialogTitle className="flex items-center gap-2 text-2xl font-bold bg-gradient-to-r from-purple via-blue to-green bg-clip-text text-transparent">
+              <Users className="text-purple" size={28} />
+              User Details
             </DialogTitle>
+            <DialogDescription className="text-gray-600">
+              Complete information about the user
+            </DialogDescription>
           </DialogHeader>
 
-          <p className="text-sm text-gray-600">
-            Are you sure you want to delete this user?
-            <span className="text-red font-semibold">
-              {" "}
-              This action cannot be undone.
-            </span>
-          </p>
+          {selectedUser && (
+            <div className="space-y-6 mt-4">
+              {/* Profile Section */}
+              <div className="bg-gradient-to-r from-purple/10 to-blue/10 p-6 rounded-lg border border-purple/20">
+                <h3 className="font-semibold text-lg mb-4 text-purple">
+                  Profile Information
+                </h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-gray-600">Full Name</p>
+                    <p className="font-semibold">{selectedUser.name}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600">Email</p>
+                    <p className="font-semibold">{selectedUser.email}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600">Phone Number</p>
+                    <p className="font-semibold">
+                      {selectedUser.phoneNumber || "Not provided"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600">User ID</p>
+                    <p className="font-mono text-sm">{selectedUser.id}</p>
+                  </div>
+                </div>
+              </div>
 
-          <div className="flex justify-end gap-3 pt-4">
-            <Button variant="outline" onClick={() => setDeleteUserId(null)}>
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={async () => {
-                setActionLoading(deleteUserId);
-                await dispatch(deleteUser(deleteUserId));
-                setDeleteUserId(null);
-                setActionLoading(null);
-              }}
-              disabled={actionLoading === deleteUserId}
-            >
-              <Trash2 size={16} className="mr-1" />
-              Delete
-            </Button>
-          </div>
+              {/* Account Status Section */}
+              <div className="bg-gradient-to-r from-green/10 to-blue/10 p-6 rounded-lg border border-green/20">
+                <h3 className="font-semibold text-lg mb-4 text-green">
+                  Account Status
+                </h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-gray-600">Status</p>
+                    <Badge
+                      className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                        selectedUser.isBlocked
+                          ? "bg-red text-white"
+                          : "bg-green text-white"
+                      }`}
+                    >
+                      {selectedUser.isBlocked ? "Blocked" : "Active"}
+                    </Badge>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600">Email Verified</p>
+                    <Badge
+                      className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                        selectedUser.isVerified
+                          ? "bg-green text-white"
+                          : "bg-orange-200 text-orange-800"
+                      }`}
+                    >
+                      {selectedUser.isVerified ? "Verified" : "Not Verified"}
+                    </Badge>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600 flex items-center gap-1">
+                      <Calendar size={14} />
+                      Joined Date
+                    </p>
+                    <p className="font-semibold">
+                      {new Date(selectedUser.createdAt).toLocaleDateString("en-US", {
+                        year: "numeric",
+                        month: "long",
+                        day: "numeric",
+                      })}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600 flex items-center gap-1">
+                      <Calendar size={14} />
+                      Last Updated
+                    </p>
+                    <p className="font-semibold">
+                      {new Date(selectedUser.updatedAt).toLocaleDateString("en-US", {
+                        year: "numeric",
+                        month: "long",
+                        day: "numeric",
+                      })}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-3 justify-end pt-4 border-t">
+                <Button
+                  variant="outline"
+                  onClick={() => setIsUserDetailsOpen(false)}
+                >
+                  Close
+                </Button>
+                <Button
+                  variant="default"
+                  onClick={() => {
+                    handleEdit(selectedUser);
+                    setIsUserDetailsOpen(false);
+                  }}
+                  className="bg-purple text-white hover:bg-purple-600"
+                >
+                  <Edit size={16} className="mr-2" />
+                  Edit User
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
+
+      {/* DELETE CONFIRMATION DIALOG */}
+      <ConfirmDialog
+        open={!!deleteUserId}
+        onOpenChange={() => {
+          setDeleteUserId(null);
+          setDeleteUserName("");
+        }}
+        onConfirm={async () => {
+          setActionLoading(deleteUserId);
+          await dispatch(deleteUser(deleteUserId));
+          setDeleteUserId(null);
+          setDeleteUserName("");
+          setActionLoading(null);
+        }}
+        title="Delete User"
+        description={
+          <>
+            Are you sure you want to delete user <strong>{deleteUserName}</strong>?
+            <br />
+            <span className="text-red-600 font-semibold mt-2 block">
+              This action cannot be undone and will permanently remove this user and all associated data.
+            </span>
+          </>
+        }
+        confirmText="Delete User"
+        isLoading={actionLoading === deleteUserId}
+        type="danger"
+      />
     </AdminLayout>
   );
 };

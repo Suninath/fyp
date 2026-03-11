@@ -49,6 +49,15 @@ const authController = {
     });
   },
 
+  async logout(req: Request, res: Response) {
+    const result = await authService.logout(req, res);
+    sendResponse(res, {
+      status: result?.status,
+      message: result?.message,
+      httpCode: result?.code,
+    });
+  },
+
   async registerStore(req: Request, res: Response) {
     const result = await authService.registerStore(req);
     sendResponse(res, {
@@ -70,6 +79,16 @@ const authController = {
 
   async me(req: Request, res: Response) {
     const result = await authService.me(req);
+    sendResponse(res, {
+      status: result?.status,
+      message: result?.message,
+      httpCode: result?.code,
+      data: result?.data,
+    });
+  },
+
+  async updateProfile(req: Request, res: Response) {
+    const result = await authService.updateProfile(req);
     sendResponse(res, {
       status: result?.status,
       message: result?.message,

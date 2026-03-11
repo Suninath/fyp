@@ -1,15 +1,27 @@
 import multer from 'multer';
 import { Request } from 'express';
 import path from 'path';
+import fs from 'fs';
 
 // Define allowed file types
-const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png'];
-const allowedExtensions = ['.jpg', '.jpeg', '.png'];
+const allowedImageTypes = ['image/jpeg', 'image/jpg', 'image/png'];
+const allowedDocumentTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
+const allowedExtensions = ['.jpg', '.jpeg', '.png', '.pdf'];
+
+// Ensure uploads directory exists
+const uploadsDir = path.join(__dirname, '../../uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
 
 // Configure storage
 const storage = multer.diskStorage({
   destination: (req: Request, file: Express.Multer.File, cb) => {
-    cb(null, 'uploads/'); // Make sure this directory exists
+    // Create uploads directory if it doesn't exist
+    if (!fs.existsSync(uploadsDir)) {
+      fs.mkdirSync(uploadsDir, { recursive: true });
+    }
+    cb(null, uploadsDir);
   },
   filename: (req: Request, file: Express.Multer.File, cb) => {
     // Generate unique filename with timestamp
@@ -22,10 +34,20 @@ const storage = multer.diskStorage({
 // File filter function
 const fileFilter = (req: Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
   // Check MIME type
-  if (allowedTypes.includes(file.mimetype)) {
+  if (allowedImageTypes.includes(file.mimetype)) {
     cb(null, true);
   } else {
     cb(new Error('Invalid file type. Only JPG, JPEG, and PNG files are allowed.'));
+  }
+};
+
+// File filter for documents (images and PDFs)
+const documentFileFilter = (req: Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
+  // Check MIME type
+  if (allowedDocumentTypes.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(new Error('Invalid file type. Only JPG, JPEG, PNG, and PDF files are allowed.'));
   }
 };
 
@@ -39,12 +61,29 @@ const upload = multer({
   }
 });
 
+// Configure multer for documents (PDF + Images)
+const uploadDoc = multer({
+  storage: storage,
+  fileFilter: documentFileFilter,
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB limit per document file
+    files: 1 // One document at a time
+  }
+});
+
 // Export middleware functions
 export const uploadSingle = upload.single('image');
 export const uploadMultiple = upload.array('images', 10); // Allow up to 10 images
 export const uploadFields = upload.fields([
   { name: 'images', maxCount: 10 },
   { name: 'profileImage', maxCount: 1 }
+]);
+
+// Export document upload middleware
+export const uploadDocumentSingle = uploadDoc.single('document');
+export const uploadDocumentField = uploadDoc.single('file');
+export const uploadDocumentWithFields = uploadDoc.fields([
+  { name: 'file', maxCount: 1 }
 ]);
 
 // Error handling middleware

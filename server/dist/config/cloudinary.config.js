@@ -2,6 +2,17 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.deleteFromCloudinary = exports.uploadToCloudinary = void 0;
 const cloudinary_1 = require("cloudinary");
+// Validate required envs early to avoid silent failures
+const requiredEnv = [
+    'CLOUDINARY_CLOUD_NAME',
+    'CLOUDINARY_API_KEY',
+    'CLOUDINARY_API_SECRET'
+];
+requiredEnv.forEach((key) => {
+    if (!process.env[key]) {
+        console.error(`[Cloudinary] Missing env ${key}.`);
+    }
+});
 // Configure Cloudinary
 cloudinary_1.v2.config({
     cloud_name: process.env.CLOUDINARY_CLOUD_NAME,

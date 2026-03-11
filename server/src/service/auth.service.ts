@@ -43,14 +43,6 @@ const authService = {
         };
       }
 
-      if (!auth.verified) {
-        return {
-          status: false,
-          code: 400,
-          message: "Please verify your account",
-        };
-      }
-
       const isPasswordValid = await comparePassword(password, auth.password);
       if (!isPasswordValid) {
         return {
@@ -69,15 +61,17 @@ const authService = {
       const accessToken = genAccessToken(payload);
       const refreshToken = genRefreshToken(payload);
 
+      const isProd = process.env.NODE_ENV === "production";
+
       res.cookie("access_token", accessToken, {
         httpOnly: true,
-        secure: true,
+        secure: isProd,
         sameSite: "lax",
       });
 
       res.cookie("refresh_token", refreshToken, {
         httpOnly: true,
-        secure: true,
+        secure: isProd,
         sameSite: "lax",
       });
 
@@ -85,7 +79,7 @@ const authService = {
         status: true,
         code: 200,
         message: "Login successful",
-        data: { role: auth.role },
+        data: { role: auth.role, accessToken },
       };
     } catch (error) {
       console.error(error);
@@ -127,7 +121,8 @@ const authService = {
         email,
         password: hashedPassword,
         role: USER_ROLE.USER,
-        verified: false,
+        emailVerified: false,
+        accountVerified: false,
         user,
       });
       await authRepository.save(auth);
@@ -176,8 +171,8 @@ const authService = {
         return { status: false, code: 404, message: "User not found" };
       }
 
-      if (auth.verified) {
-        return { status: false, code: 400, message: "Already verified" };
+      if (auth.emailVerified) {
+        return { status: false, code: 400, message: "Email already verified" };
       }
 
       const otpRecord = await otpRepository.findOne({
@@ -194,11 +189,15 @@ const authService = {
         return { status: false, code: 400, message: "Invalid OTP" };
       }
 
-      auth.verified = true;
+      auth.emailVerified = true;
       await authRepository.save(auth);
       await otpRepository.remove(otpRecord);
 
-      return { status: true, code: 200, message: "Account verified" };
+      return { 
+        status: true, 
+        code: 200, 
+        message: "Email verified successfully. Please upload required documents for account verification" 
+      };
     } catch (error) {
       console.error(error);
       return { status: false, code: 500, message: "Internal Server Error" };
@@ -321,6 +320,8 @@ const authService = {
         return { status: false, code: 404, message: "User not found" };
       }
 
+      console.log(`📋 User profile requested - ID: ${userDetails.id}, accountVerified: ${userDetails.auth.accountVerified}`);
+
       return {
         status: true,
         code: 200,
@@ -330,7 +331,134 @@ const authService = {
           name: userDetails.name,
           email: userDetails.auth.email,
           role: userDetails.auth.role,
-          verified: userDetails.auth.verified,
+          emailVerified: userDetails.auth.emailVerified,
+          accountVerified: userDetails.auth.accountVerified,
+          verificationRejected: userDetails.auth.verificationRejected,
+          rejectionReason: userDetails.auth.rejectionReason,
+          phoneNumber: userDetails.phoneNumber,
+          userType: userDetails.userType,
+          createdAt: userDetails.createdAt,
+        },
+      };
+    } catch (error) {
+      console.error(error);
+      return { status: false, code: 500, message: "Internal Server Error" };
+    }
+  },
+
+  /* ===================== UPDATE PROFILE ===================== */
+  async updateProfile(req: Request) {
+    try {
+      const currentUser = (req as any).user;
+
+      if (!currentUser?.id) {
+        return { status: false, code: 401, message: "Unauthorized" };
+      }
+
+      const { name, phoneNumber, email } = req.body as {
+        name?: string;
+        phoneNumber?: string;
+        email?: string;
+      };
+
+      if (!name && !phoneNumber && !email) {
+        return { status: false, code: 400, message: "No fields to update" };
+      }
+
+      const userDetails = await userRepository.findOne({
+        where: { id: currentUser.id },
+        relations: ["auth"],
+      });
+
+      if (!userDetails || !userDetails.auth) {
+        return { status: false, code: 404, message: "User not found" };
+      }
+
+      // Update name
+      if (typeof name === "string") {
+        userDetails.name = name.trim();
+      }
+
+      // Update phone number with uniqueness check
+      if (typeof phoneNumber === "string") {
+        const normalizedPhone = phoneNumber.trim();
+        if (normalizedPhone && normalizedPhone !== userDetails.phoneNumber) {
+          const existingPhone = await userRepository.findOne({
+            where: { phoneNumber: normalizedPhone },
+          });
+          if (existingPhone && existingPhone.id !== userDetails.id) {
+            return {
+              status: false,
+              code: 400,
+              message: "Phone number already in use",
+            };
+          }
+          userDetails.phoneNumber = normalizedPhone;
+        }
+      }
+
+      let emailChanged = false;
+      // Update email with uniqueness + re-verification flow
+      if (typeof email === "string") {
+        const normalizedEmail = email.trim().toLowerCase();
+        if (normalizedEmail && normalizedEmail !== userDetails.auth.email) {
+          const existingEmail = await authRepository.findOne({
+            where: { email: normalizedEmail },
+          });
+          if (existingEmail && existingEmail.user?.id !== userDetails.id) {
+            return {
+              status: false,
+              code: 400,
+              message: "Email already in use",
+            };
+          }
+          userDetails.auth.email = normalizedEmail;
+          userDetails.auth.emailVerified = false; // require re-verification after email change
+          emailChanged = true;
+        }
+      }
+
+      await userRepository.save(userDetails);
+      await authRepository.save(userDetails.auth);
+
+      // If email changed, generate a new OTP and email the user
+      if (emailChanged) {
+        // remove old OTPs
+        await otpRepository.delete({ user: { id: userDetails.id } });
+
+        const otp = generateOtp();
+        const hashedOtp = await hashPassword(otp);
+        const userOtp = otpRepository.create({
+          otp: hashedOtp,
+          expiresAt: otpExpiry(),
+          user: userDetails,
+        });
+        await otpRepository.save(userOtp);
+
+        const mailParams: OtpEmailParams = {
+          firstname: userDetails.name || "User",
+          otp,
+        };
+
+        sendMail(
+          [userDetails.auth.email],
+          "Account Verification OTP",
+          generateOtpEmailHTML(mailParams)
+        );
+      }
+
+      return {
+        status: true,
+        code: 200,
+        message: "Profile updated",
+        data: {
+          id: userDetails.id,
+          name: userDetails.name,
+          email: userDetails.auth.email,
+          role: userDetails.auth.role,
+          emailVerified: userDetails.auth.emailVerified,
+          accountVerified: userDetails.auth.accountVerified,
+          verificationRejected: userDetails.auth.verificationRejected,
           phoneNumber: userDetails.phoneNumber,
           createdAt: userDetails.createdAt,
         },
@@ -366,6 +494,32 @@ const authService = {
         data: {
           role: userDetails.auth.role,
         },
+      };
+    } catch (error) {
+      console.error(error);
+      return { status: false, code: 500, message: "Internal Server Error" };
+    }
+  },
+
+  /* ===================== LOGOUT ===================== */
+  async logout(req: Request, res: Response) {
+    try {
+      // Clear the cookies
+      res.clearCookie("access_token", {
+        httpOnly: true,
+        secure: true,
+        sameSite: "lax",
+      });
+      res.clearCookie("refresh_token", {
+        httpOnly: true,
+        secure: true,
+        sameSite: "lax",
+      });
+
+      return {
+        status: true,
+        code: 200,
+        message: "Logout successful",
       };
     } catch (error) {
       console.error(error);
@@ -429,7 +583,8 @@ const authService = {
         email,
         password: hashedPassword,
         role: USER_ROLE.STORE,
-        verified: true, // can also keep false if you want OTP verification
+        emailVerified: true, // Store can be email verified directly
+        accountVerified: false, // Still needs document verification
         user: storeUser,
       });
       await authRepository.save(storeAuth);
@@ -451,15 +606,9 @@ const authService = {
 export default authService;
 
 /* ===================== HELPER ===================== */
-function generateOtpEmailHTML({
-  firstname,
-  otp,
-}: {
-  firstname: string;
-  otp: string;
-}) {
+function generateOtpEmailHTML({ firstname, otp }: OtpEmailParams) {
   return `
-    <h3>Hello ${firstname}</h3>
+    <h3>Hello ${firstname || "User"}</h3>
     <p>Your OTP is <b>${otp}</b></p>
     <p>This OTP will expire in 5 minutes.</p>
   `;

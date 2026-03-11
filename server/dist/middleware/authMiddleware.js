@@ -33,9 +33,10 @@ const authenticationMiddeware = (req, res, next) => __awaiter(void 0, void 0, vo
         try {
             const decodedRefresh = (0, tokenGen_1.verifyToken)(refreshToken, process.env.REFRESH_TOKEN_SECRET);
             const newAccessToken = (0, tokenGen_1.genAccessToken)(decodedRefresh);
+            const isProd = process.env.NODE_ENV === "production";
             res.cookie("access_token", newAccessToken, {
                 httpOnly: true,
-                secure: true,
+                secure: isProd,
                 sameSite: "lax",
             });
             req.user = decodedRefresh;

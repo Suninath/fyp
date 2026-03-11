@@ -11,6 +11,14 @@ const AUTH_PAGES = [
   "/verifyOtp",
 ];
 
+// Public pages accessible to everyone except admins
+const PUBLIC_PAGES = [
+  "/",
+  "/home",
+  "/about",
+  "/contact",
+];
+
 const ROLE_HOME = {
   admin: "/admin/dashboard",
   store: "/store/dashboard",
@@ -43,10 +51,22 @@ const ProtectedRoute = memo(({ children, allowedRoles = [] }) => {
 
     const path = location.pathname;
     const isAuthPage = AUTH_PAGES.includes(path);
+    const isPublicPage = PUBLIC_PAGES.includes(path);
     const home = ROLE_HOME[role];
 
-    // Not logged in
-    if (!authenticate && !isAuthPage) {
+    // Handle public pages
+    if (isPublicPage) {
+      // Admins cannot access public pages
+      if (authenticate && role === "admin") {
+        navigate("/admin/dashboard", { replace: true });
+        return;
+      }
+      // Everyone else (logged in users/stores and non-logged-in users) can access
+      return;
+    }
+
+    // Not logged in and not on auth page or public page
+    if (!authenticate && !isAuthPage && !isPublicPage) {
       navigate("/login", { replace: true, state: { from: location } });
       return;
     }

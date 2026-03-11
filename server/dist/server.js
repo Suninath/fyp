@@ -23,10 +23,23 @@ const startServer = () => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const app = (0, express_1.default)();
         app.use((0, cookie_parser_1.default)());
-        app.use(express_1.default.json());
-        app.use(express_1.default.urlencoded({ extended: true }));
+        // Parse JSON and URL-encoded data with increased limits for file uploads
+        app.use(express_1.default.json({ limit: "50mb" }));
+        app.use(express_1.default.urlencoded({ extended: true, limit: "50mb" }));
         app.use((0, cors_1.default)({
-            origin: process.env.FRONTEND_URL || "http://localhost:3000",
+            origin: (origin, callback) => {
+                const allowed = [
+                    process.env.FRONTEND_URL,
+                    "http://localhost:5173",
+                    "http://localhost:3000",
+                ].filter(Boolean);
+                if (!origin || allowed.includes(origin)) {
+                    callback(null, true);
+                }
+                else {
+                    callback(new Error("Not allowed by CORS"));
+                }
+            },
             credentials: true,
             methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
         }));

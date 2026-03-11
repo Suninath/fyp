@@ -45,7 +45,7 @@ function LoginComponent() {
   }, [login, navigate]);
 
   return (
-    <div className="min-h-screen grid grid-cols-1 lg:grid-cols-2 bg-gray-100">
+    <div className="min-h-screen grid grid-cols-1 lg:grid-cols-2 bg-gray-50">
 
       {/* Left – Image & Branding */}
       <div className="relative hidden lg:flex">
@@ -56,11 +56,11 @@ function LoginComponent() {
         />
         <div className="absolute inset-0 bg-gray-900/70" />
 
-        <div className="relative z-10 flex flex-col justify-center px-20 text-white">
-          <h1 className="text-4xl font-semibold tracking-tight">
+        <div className="relative z-10 flex flex-col justify-center px-12 xl:px-20 text-white">
+          <h1 className="text-3xl xl:text-4xl font-semibold tracking-tight">
             Vehicle Marketplace
           </h1>
-          <p className="mt-5 text-lg text-gray-300 max-w-md leading-relaxed">
+          <p className="mt-5 text-base xl:text-lg text-gray-300 max-w-md leading-relaxed">
             Buy, sell, and rent vehicles through a secure and professionally
             managed platform.
           </p>
@@ -74,12 +74,12 @@ function LoginComponent() {
       </div>
 
       {/* Right – Login Form */}
-      <div className="flex items-center justify-center px-4">
-        <div className="w-full max-w-md bg-white border border-gray-200 rounded-lg shadow-md">
+      <div className="flex items-center justify-center px-4 sm:px-6 py-8 sm:py-12">
+        <div className="w-full max-w-md bg-white border border-gray-200 rounded-lg shadow-lg">
 
           {/* Header */}
-          <div className="px-8 py-7 border-b border-gray-200">
-            <h2 className="text-2xl font-semibold text-gray-900">
+          <div className="px-6 sm:px-8 py-6 sm:py-7 border-b border-gray-200">
+            <h2 className="text-xl sm:text-2xl font-semibold text-gray-900">
               Sign in
             </h2>
             <p className="mt-2 text-sm text-gray-600">
@@ -91,7 +91,7 @@ function LoginComponent() {
           <form
             onSubmit={handleSubmit(onSumit)}
             autoComplete="off"
-            className="px-8 py-7 space-y-5"
+            className="px-6 sm:px-8 py-6 sm:py-7 space-y-5"
           >
             {/* Email */}
             <div>
@@ -144,9 +144,16 @@ function LoginComponent() {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full h-11 rounded-md bg-purple text-white text-sm font-semibold tracking-wide hover:opacity-90 disabled:opacity-70 transition"
+              className="w-full h-11 rounded-lg bg-purple hover:opacity-90 text-white text-sm font-bold tracking-wide shadow-lg disabled:opacity-70 disabled:cursor-not-allowed transition-all hover:scale-[1.02] active:scale-95"
             >
-              {isSubmitting ? "Signing in..." : "Sign in"}
+              {isSubmitting ? (
+                <span className="flex items-center justify-center">
+                  <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                  Signing in...
+                </span>
+              ) : (
+                "Sign in"
+              )}
             </button>
 
             {/* Footer */}

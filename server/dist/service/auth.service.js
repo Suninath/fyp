@@ -70,14 +70,15 @@ const authService = {
                 };
                 const accessToken = (0, tokenGen_1.genAccessToken)(payload);
                 const refreshToken = (0, tokenGen_1.genRefreshToken)(payload);
+                const isProd = process.env.NODE_ENV === "production";
                 res.cookie("access_token", accessToken, {
                     httpOnly: true,
-                    secure: true,
+                    secure: isProd,
                     sameSite: "lax",
                 });
                 res.cookie("refresh_token", refreshToken, {
                     httpOnly: true,
-                    secure: true,
+                    secure: isProd,
                     sameSite: "lax",
                 });
                 return {
@@ -301,6 +302,108 @@ const authService = {
             }
         });
     },
+    /* ===================== UPDATE PROFILE ===================== */
+    updateProfile(req) {
+        return __awaiter(this, void 0, void 0, function* () {
+            var _a;
+            try {
+                const currentUser = req.user;
+                if (!(currentUser === null || currentUser === void 0 ? void 0 : currentUser.id)) {
+                    return { status: false, code: 401, message: "Unauthorized" };
+                }
+                const { name, phoneNumber, email } = req.body;
+                if (!name && !phoneNumber && !email) {
+                    return { status: false, code: 400, message: "No fields to update" };
+                }
+                const userDetails = yield userRepository.findOne({
+                    where: { id: currentUser.id },
+                    relations: ["auth"],
+                });
+                if (!userDetails || !userDetails.auth) {
+                    return { status: false, code: 404, message: "User not found" };
+                }
+                // Update name
+                if (typeof name === "string") {
+                    userDetails.name = name.trim();
+                }
+                // Update phone number with uniqueness check
+                if (typeof phoneNumber === "string") {
+                    const normalizedPhone = phoneNumber.trim();
+                    if (normalizedPhone && normalizedPhone !== userDetails.phoneNumber) {
+                        const existingPhone = yield userRepository.findOne({
+                            where: { phoneNumber: normalizedPhone },
+                        });
+                        if (existingPhone && existingPhone.id !== userDetails.id) {
+                            return {
+                                status: false,
+                                code: 400,
+                                message: "Phone number already in use",
+                            };
+                        }
+                        userDetails.phoneNumber = normalizedPhone;
+                    }
+                }
+                let emailChanged = false;
+                // Update email with uniqueness + re-verification flow
+                if (typeof email === "string") {
+                    const normalizedEmail = email.trim().toLowerCase();
+                    if (normalizedEmail && normalizedEmail !== userDetails.auth.email) {
+                        const existingEmail = yield authRepository.findOne({
+                            where: { email: normalizedEmail },
+                        });
+                        if (existingEmail && ((_a = existingEmail.user) === null || _a === void 0 ? void 0 : _a.id) !== userDetails.id) {
+                            return {
+                                status: false,
+                                code: 400,
+                                message: "Email already in use",
+                            };
+                        }
+                        userDetails.auth.email = normalizedEmail;
+                        userDetails.auth.verified = false; // require re-verification after email change
+                        emailChanged = true;
+                    }
+                }
+                yield userRepository.save(userDetails);
+                yield authRepository.save(userDetails.auth);
+                // If email changed, generate a new OTP and email the user
+                if (emailChanged) {
+                    // remove old OTPs
+                    yield otpRepository.delete({ user: { id: userDetails.id } });
+                    const otp = (0, otpGeneration_1.generateOtp)();
+                    const hashedOtp = yield (0, passwordHelper_1.hashPassword)(otp);
+                    const userOtp = otpRepository.create({
+                        otp: hashedOtp,
+                        expiresAt: (0, otpGeneration_1.otpExpiry)(),
+                        user: userDetails,
+                    });
+                    yield otpRepository.save(userOtp);
+                    const mailParams = {
+                        firstname: userDetails.name || "User",
+                        otp,
+                    };
+                    (0, sendmail_1.default)([userDetails.auth.email], "Account Verification OTP", generateOtpEmailHTML(mailParams));
+                }
+                return {
+                    status: true,
+                    code: 200,
+                    message: "Profile updated",
+                    data: {
+                        id: userDetails.id,
+                        name: userDetails.name,
+                        email: userDetails.auth.email,
+                        role: userDetails.auth.role,
+                        verified: userDetails.auth.verified,
+                        phoneNumber: userDetails.phoneNumber,
+                        createdAt: userDetails.createdAt,
+                    },
+                };
+            }
+            catch (error) {
+                console.error(error);
+                return { status: false, code: 500, message: "Internal Server Error" };
+            }
+        });
+    },
     /* ===================== AUTHORIZE ===================== */
     authorize(req) {
         return __awaiter(this, void 0, void 0, function* () {
@@ -331,11 +434,39 @@ const authService = {
             }
         });
     },
+    /* ===================== LOGOUT ===================== */
+    logout(req, res) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                // Clear the cookies
+                res.clearCookie("access_token", {
+                    httpOnly: true,
+                    secure: true,
+                    sameSite: "lax",
+                });
+                res.clearCookie("refresh_token", {
+                    httpOnly: true,
+                    secure: true,
+                    sameSite: "lax",
+                });
+                return {
+                    status: true,
+                    code: 200,
+                    message: "Logout successful",
+                };
+            }
+            catch (error) {
+                console.error(error);
+                return { status: false, code: 500, message: "Internal Server Error" };
+            }
+        });
+    },
     registerStore(req) {
         return __awaiter(this, void 0, void 0, function* () {
             try {
-                const { name, email, phoneNumber, password, panNumber, companyRegistrationDoc, } = req.body;
-                if (!name ||
+                const { storeName, name, email, phoneNumber, password, panNumber, companyRegistrationDoc, } = req.body;
+                const storeNameValue = storeName || name;
+                if (!storeNameValue ||
                     !email ||
                     !phoneNumber ||
                     !password ||
@@ -358,7 +489,7 @@ const authService = {
                 const hashedPassword = yield (0, passwordHelper_1.hashPassword)(password);
                 /* SAVE STORE USER */
                 const storeUser = userRepository.create({
-                    name,
+                    name: storeNameValue,
                     phoneNumber,
                     panNumber,
                     companyRegistrationDoc,
@@ -390,9 +521,9 @@ const authService = {
 /* ===================== REGISTER STORE ===================== */
 exports.default = authService;
 /* ===================== HELPER ===================== */
-function generateOtpEmailHTML({ firstname, otp, }) {
+function generateOtpEmailHTML({ firstname, otp }) {
     return `
-    <h3>Hello ${firstname}</h3>
+    <h3>Hello ${firstname || "User"}</h3>
     <p>Your OTP is <b>${otp}</b></p>
     <p>This OTP will expire in 5 minutes.</p>
   `;

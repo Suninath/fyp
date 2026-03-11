@@ -22,6 +22,10 @@ __decorate([
     (0, typeorm_1.Column)({ name: "created_at", type: "timestamp", default: () => "CURRENT_TIMESTAMP" }),
     __metadata("design:type", Date)
 ], BaseEntity.prototype, "createdAt", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ name: "updated_at", type: "timestamp", default: () => "CURRENT_TIMESTAMP", onUpdate: "CURRENT_TIMESTAMP" }),
+    __metadata("design:type", Date)
+], BaseEntity.prototype, "updatedAt", void 0);
 exports.BaseEntity = BaseEntity = __decorate([
     (0, typeorm_1.Entity)()
 ], BaseEntity);
