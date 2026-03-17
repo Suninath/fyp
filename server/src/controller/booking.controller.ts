@@ -212,7 +212,7 @@ const bookingController = {
       // Redirect to frontend with status
       const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
       if (result.status) {
-        return res.redirect(`${frontendUrl}/booking/payment/success?bookingId=${result.data?.bookingId}`);
+        return res.redirect(`${frontendUrl}/bookings?payment=success&bookingId=${result.data?.bookingId}`);
       } else {
         return res.redirect(`${frontendUrl}/booking/payment/failure?message=${encodeURIComponent(result.message)}`);
       }
@@ -246,7 +246,7 @@ const bookingController = {
       // Redirect to frontend with status
       const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
       if (result.status) {
-        return res.redirect(`${frontendUrl}/booking/payment/success?bookingId=${result.data?.bookingId}`);
+        return res.redirect(`${frontendUrl}/bookings?payment=success&bookingId=${result.data?.bookingId}`);
       } else {
         return res.redirect(`${frontendUrl}/booking/payment/failure?message=${encodeURIComponent(result.message)}`);
       }

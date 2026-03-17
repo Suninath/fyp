@@ -22,6 +22,7 @@ router.get("/:documentId", authenticationMiddeware, documentController.getDocume
 router.delete("/:documentId", authenticationMiddeware, documentController.deleteDocument);
 
 // Admin routes
+router.get("/admin/all", authenticationMiddeware, documentController.getAllDocuments);
 router.get("/admin/pending", authenticationMiddeware, documentController.getPendingDocuments);
 
 router.put("/:documentId/verify", authenticationMiddeware, documentController.verifyDocument);

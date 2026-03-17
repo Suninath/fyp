@@ -290,11 +290,14 @@ export const getAllBookings = createAsyncThunk(
 
 export const updateBookingStatus = createAsyncThunk(
   "admin/updateBookingStatus",
-  async ({ bookingId, status }, { rejectWithValue }) => {
+  async ({ bookingId, status, adminRemarks }, { rejectWithValue }) => {
     try {
-      const resp = await main_uri.patch(`/api/v1/admin/bookings/${bookingId}/status`, { status });
+      const resp = await main_uri.patch(`/api/v1/admin/bookings/${bookingId}/status`, {
+        status,
+        adminRemarks,
+      });
       SucessToast({ message: resp.data?.message });
-      return { bookingId, status };
+      return { bookingId, status, adminRemarks };
     } catch (error) {
       ErrorToast({ message: error.response?.data?.message });
       return rejectWithValue(error.response?.data?.message);

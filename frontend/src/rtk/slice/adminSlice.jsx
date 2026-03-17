@@ -30,6 +30,7 @@ const initialState = {
     totalStores: 0,
     totalVehicles: 0,
     totalRevenue: 0,
+    pendingPaymentAmount: 0,
     verifiedUsers: 0,
     pendingVerificationUsers: 0,
     rejectedVerificationUsers: 0,
@@ -101,6 +102,7 @@ const initialState = {
     failed: 0,
     cancelled: 0,
     totalRevenue: 0,
+    pendingRevenue: 0,
     byMethod: {
       esewa: 0,
       khalti: 0
@@ -311,10 +313,11 @@ const adminSlice = createSlice({
 
       // Update Booking Status
       .addCase(updateBookingStatus.fulfilled, (state, action) => {
-        const { bookingId, status } = action.payload;
+        const { bookingId, status, adminRemarks } = action.payload;
         const bookingIndex = state.bookings.findIndex(b => b.id === bookingId);
         if (bookingIndex !== -1) {
           state.bookings[bookingIndex].status = status;
+          state.bookings[bookingIndex].adminRemarks = adminRemarks;
         }
       })
 

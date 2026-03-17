@@ -7,12 +7,13 @@ import { Car, LogOut, User, ChevronDown, Menu, X, MessageCircle, Calendar } from
 import { userLogout } from "../../rtk/thunk/authThunk";
 import { getConversations } from "../../rtk/thunk/chatThunk";
 import { Badge } from "../../ui/ui/badge";
+import NotificationBell from "./NotificationBell";
 
 const Navigation = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const { authenticate, user } = useSelector((state) => state.auth);
-  const { conversations = [] } = useSelector((state) => state.chat);
+  const { conversations = [], totalUnreadCount = 0 } = useSelector((state) => state.chat);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Count users with unread messages
@@ -120,6 +121,8 @@ const Navigation = () => {
                     </span>
                   )}
                 </button>
+
+                <NotificationBell />
                 
                 <DropdownMenu>
                 <DropdownMenuTrigger asChild>

@@ -14,6 +14,7 @@ import commentSlice from "../slice/commentSlice";
 import bookingSlice from "../slice/bookingSlice";
 import chatSlice from "../slice/chatSlice";
 import reviewSlice from "../slice/reviewSlice";
+import notificationSlice from "../slice/notificationSlice";
 
 const persistConfig = {
   key: "root",
@@ -29,6 +30,7 @@ const rootReducer = combineReducers({
   booking: bookingSlice,
   chat: chatSlice,
   review: reviewSlice,
+  notification: notificationSlice,
   //   user: userslice,
   //   vehicle: vehicleslice,
   //   comment: commentSlice,

@@ -53,6 +53,9 @@ export class BookingEntity extends BaseEntity {
   @Column({ type: "text", nullable: true })
   notes?: string;
 
+  @Column({ name: "admin_remarks", type: "text", nullable: true })
+  adminRemarks?: string;
+
   @OneToMany(() => PaymentEntity, (payment) => payment.booking)
   payments: PaymentEntity[];
 }

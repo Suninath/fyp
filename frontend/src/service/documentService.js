@@ -57,6 +57,18 @@ export const deleteDocument = async (documentId) => {
   }
 };
 
+// Admin: Get all documents with optional status filter
+export const getAllDocuments = async (page = 1, limit = 10, status = 'all') => {
+  try {
+    const params = new URLSearchParams({ page, limit });
+    if (status && status !== 'all') params.append('status', status);
+    const response = await main_uri.get(`/api/v1/documents/admin/all?${params}`);
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || error.message;
+  }
+};
+
 // Admin: Get pending documents
 export const getPendingDocuments = async (page = 1, limit = 10) => {
   try {

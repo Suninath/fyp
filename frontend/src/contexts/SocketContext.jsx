@@ -7,6 +7,8 @@ import {
   addMessage 
 } from "../rtk/slice/chatSlice";
 import { getConversations } from "../rtk/thunk/chatThunk";
+import { prependRealtimeNotification } from "../rtk/slice/notificationSlice";
+import { fetchUnreadNotificationCount } from "../rtk/thunk/notificationThunk";
 
 const SocketContext = createContext(null);
 
@@ -62,6 +64,7 @@ export const SocketProvider = ({ children }) => {
       setIsConnected(true);
       // Refresh conversations when socket connects
       dispatch(getConversations());
+      dispatch(fetchUnreadNotificationCount());
     });
 
     newSocket.on("disconnect", (reason) => {
@@ -114,6 +117,12 @@ export const SocketProvider = ({ children }) => {
 
     newSocket.on("message:error", (error) => {
       console.error("💬 Message error:", error);
+    });
+
+    newSocket.on("notification:new", (notification) => {
+      if (notification && notification.id) {
+        dispatch(prependRealtimeNotification(notification));
+      }
     });
 
     return () => {

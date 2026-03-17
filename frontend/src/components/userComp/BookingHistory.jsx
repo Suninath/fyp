@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { getUserBookings, cancelBooking, initiatePayment } from "../../rtk/slice/bookingSlice";
-import { canReviewBooking } from "../../rtk/slice/reviewSlice";
+import { canReviewBooking, getBookingReview } from "../../rtk/slice/reviewSlice";
 import { 
   Calendar, 
   MapPin, 
@@ -22,7 +22,8 @@ import {
   CreditCard,
   Tag,
   Star,
-  MessageSquare
+  MessageSquare,
+  Pencil
 } from "lucide-react";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
@@ -40,6 +41,7 @@ const BookingHistory = ({ filter = "all" }) => {
   const [reviewModalOpen, setReviewModalOpen] = useState(false);
   const [selectedBookingForReview, setSelectedBookingForReview] = useState(null);
   const [reviewedBookings, setReviewedBookings] = useState(new Set());
+  const [bookingReviews, setBookingReviews] = useState({});
 
   useEffect(() => {
     dispatch(getUserBookings({ page, limit: 100 }));
@@ -54,6 +56,14 @@ const BookingHistory = ({ filter = "all" }) => {
         if (result.payload?.data?.canReview === false && 
             result.payload?.data?.reason === "Already reviewed") {
           setReviewedBookings(prev => new Set([...prev, booking.id]));
+
+          const reviewResult = await dispatch(getBookingReview(booking.id));
+          if (reviewResult.payload?.data) {
+            setBookingReviews((prev) => ({
+              ...prev,
+              [booking.id]: reviewResult.payload.data,
+            }));
+          }
         }
       }
     };
@@ -79,9 +89,34 @@ const BookingHistory = ({ filter = "all" }) => {
   };
 
   const handleReviewSuccess = () => {
-    setReviewedBookings(prev => new Set([...prev, selectedBookingForReview?.id]));
+    if (selectedBookingForReview?.id) {
+      setReviewedBookings(prev => new Set([...prev, selectedBookingForReview.id]));
+      dispatch(getBookingReview(selectedBookingForReview.id)).then((result) => {
+        if (result.payload?.data) {
+          setBookingReviews((prev) => ({
+            ...prev,
+            [selectedBookingForReview.id]: result.payload.data,
+          }));
+        }
+      });
+    }
     setReviewModalOpen(false);
     setSelectedBookingForReview(null);
+  };
+
+  const renderReviewStars = (rating) => {
+    return (
+      <div className="flex gap-0.5">
+        {[1, 2, 3, 4, 5].map((star) => (
+          <Star
+            key={star}
+            className={`w-4 h-4 ${
+              star <= rating ? "fill-yellow-400 text-yellow-400" : "text-gray-300"
+            }`}
+          />
+        ))}
+      </div>
+    );
   };
 
   const handleCancelBooking = async (bookingId) => {
@@ -393,6 +428,15 @@ const BookingHistory = ({ filter = "all" }) => {
               </div>
             )}
 
+            {booking.adminRemarks && (
+              <div className="p-3 bg-red/5 rounded-lg border border-red/10 mb-4">
+                <p className="text-xs text-gray-600 mb-1 flex items-center gap-1">
+                  <MessageSquare className="w-4 h-4 text-red" /> Admin Remark:
+                </p>
+                <p className="text-sm text-gray-700">{booking.adminRemarks}</p>
+              </div>
+            )}
+
             {/* Expand/Collapse Vehicle Details */}
             <button
               onClick={() => toggleExpand(booking.id)}
@@ -542,10 +586,14 @@ const BookingHistory = ({ filter = "all" }) => {
                     ✓ Booking Completed
                   </div>
                   {reviewedBookings.has(booking.id) ? (
-                    <div className="flex items-center gap-2 text-green py-2 px-4 bg-green/10 rounded-lg">
-                      <Star className="w-4 h-4 fill-green text-green" />
-                      <span className="font-medium text-sm">Reviewed</span>
-                    </div>
+                    <Button
+                      onClick={() => handleOpenReviewModal(booking)}
+                      variant="outline"
+                      className="border-green text-green hover:bg-green/10"
+                    >
+                      <Pencil className="w-4 h-4 mr-2" />
+                      Edit Review
+                    </Button>
                   ) : (
                     <Button
                       onClick={() => handleOpenReviewModal(booking)}
@@ -559,10 +607,39 @@ const BookingHistory = ({ filter = "all" }) => {
               )}
               {booking.status === "Cancelled" && (
                 <div className="flex-1 text-center text-gray-500 py-2 bg-gray-100 rounded-lg">
-                  This booking has been cancelled
+                  <p>This booking has been cancelled</p>
+                  {booking.adminRemarks && (
+                    <p className="text-sm text-red mt-1">Remark: {booking.adminRemarks}</p>
+                  )}
                 </div>
               )}
             </div>
+
+            {bookingReviews[booking.id] && (
+              <div className="mt-4 p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+                <div className="flex items-start justify-between gap-4 mb-2">
+                  <div>
+                    <p className="text-sm font-semibold text-gray-800">Your Feedback</p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Submitted on {new Date(bookingReviews[booking.id].createdAt).toLocaleDateString()}
+                    </p>
+                  </div>
+                  {renderReviewStars(bookingReviews[booking.id].rating || 0)}
+                </div>
+
+                {bookingReviews[booking.id].title && (
+                  <p className="font-medium text-gray-800 mb-1">
+                    {bookingReviews[booking.id].title}
+                  </p>
+                )}
+
+                {bookingReviews[booking.id].comment && (
+                  <p className="text-sm text-gray-700 leading-relaxed">
+                    {bookingReviews[booking.id].comment}
+                  </p>
+                )}
+              </div>
+            )}
             </div>
           </div>
         </div>
@@ -606,6 +683,7 @@ const BookingHistory = ({ filter = "all" }) => {
         <ReviewForm
           bookingId={selectedBookingForReview.id}
           vehicleInfo={selectedBookingForReview.vehicle}
+          existingReview={bookingReviews[selectedBookingForReview.id] || null}
           onClose={() => {
             setReviewModalOpen(false);
             setSelectedBookingForReview(null);

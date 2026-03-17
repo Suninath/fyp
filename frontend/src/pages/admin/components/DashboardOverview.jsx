@@ -161,12 +161,53 @@ const DashboardOverview = () => {
     <AdminLayout activeTab="dashboard">
       <div className="space-y-8">
         {/* KPI Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {[
             { label: "Total Users", value: dashboardStats?.totalUsers || 0, icon: Users, bgColor: "bg-blue/10", iconColor: "text-blue", loading: loading },
             { label: "Total Stores", value: dashboardStats?.totalStores || 0, icon: Store, bgColor: "bg-green/10", iconColor: "text-green", loading: loading },
-            { label: "Total Vehicles", value: dashboardStats?.totalVehicles || 0, icon: Car, bgColor: "bg-purple/10", iconColor: "text-purple", loading: loading },
-            { label: "Total Revenue", value: `$${dashboardStats?.totalRevenue || 0}`, icon: DollarSign, bgColor: "bg-green/10", iconColor: "text-green", loading: loading }
+            { label: "Total Vehicles", value: dashboardStats?.totalVehicles || 0, icon: Car, bgColor: "bg-purple/10", iconColor: "text-purple", loading: loading }
+          ].map(({ label, value, icon: Icon, bgColor, iconColor, loading: itemLoading }) => (
+            <Card key={label} className="bg-white border border-gray-200 shadow-sm hover:shadow-lg transition-all duration-300 rounded-xl overflow-hidden">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-500 font-medium mb-1">{label}</p>
+                    {itemLoading ? (
+                      <div className="animate-pulse">
+                        <div className="h-8 w-20 bg-gray-200 rounded"></div>
+                      </div>
+                    ) : (
+                      <p className="text-3xl font-bold text-gray-900">{value}</p>
+                    )}
+                  </div>
+                  <div className={`p-4 rounded-xl ${bgColor}`}>
+                    <Icon className={`h-6 w-6 ${iconColor}`} />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        {/* Payment Revenue Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {[
+            {
+              label: "Payment Successful Revenue",
+              value: `$${dashboardStats?.totalRevenue || 0}`,
+              icon: DollarSign,
+              bgColor: "bg-green/10",
+              iconColor: "text-green",
+              loading: loading,
+            },
+            {
+              label: "Pending Revenue",
+              value: `$${dashboardStats?.pendingPaymentAmount || 0}`,
+              icon: Clock,
+              bgColor: "bg-amber/10",
+              iconColor: "text-amber",
+              loading: loading,
+            },
           ].map(({ label, value, icon: Icon, bgColor, iconColor, loading: itemLoading }) => (
             <Card key={label} className="bg-white border border-gray-200 shadow-sm hover:shadow-lg transition-all duration-300 rounded-xl overflow-hidden">
               <CardContent className="p-6">

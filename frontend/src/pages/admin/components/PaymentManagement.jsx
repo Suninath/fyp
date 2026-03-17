@@ -14,7 +14,6 @@ import {
   Eye,
   DollarSign,
   Wallet,
-  TrendingUp,
 } from "lucide-react";
 
 import { Button } from "../../../ui/ui/button";
@@ -247,20 +246,36 @@ const PaymentManagement = () => {
           </Card>
         </div>
 
-        {/* Revenue Card */}
-        <Card className="bg-gradient-to-r from-green-500 to-green-600 text-white">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-green-100">Total Revenue (Successful Payments)</p>
-                <p className="text-3xl font-bold mt-1">
-                  {formatCurrency(paymentStats?.totalRevenue)}
-                </p>
+        {/* Revenue Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Card className="bg-gradient-to-r from-green-500 to-green-600 text-white">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-green-100">Payment Successful Revenue</p>
+                  <p className="text-3xl font-bold mt-1">
+                    {formatCurrency(paymentStats?.totalRevenue)}
+                  </p>
+                </div>
+                <DollarSign className="w-12 h-12 text-green-200" />
               </div>
-              <TrendingUp className="w-12 h-12 text-green-200" />
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-gradient-to-r from-amber-500 to-orange-500 text-white">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-amber-100">Pending Revenue</p>
+                  <p className="text-3xl font-bold mt-1">
+                    {formatCurrency(paymentStats?.pendingRevenue)}
+                  </p>
+                </div>
+                <Clock className="w-12 h-12 text-amber-100" />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
 
         {/* Filters */}
         <div className="flex flex-col sm:flex-row gap-4">

@@ -3,6 +3,9 @@ import { BookingEntity, BOOKING_STATUS } from "../entities/booking.entity";
 import { PaymentEntity, PAYMENT_METHOD, PAYMENT_STATUS } from "../entities/payment.entity";
 import { VehicleEntity } from "../entities/vehicle.entity";
 import { UserEntity } from "../entities/user.entity";
+import { USER_ROLE } from "../constant/enums";
+import { notificationService } from "./notification.service";
+import { NOTIFICATION_TYPE } from "../entities/notification.entity";
 import axiosInstance from "../utils/axiosInstance";
 import { mockPaymentService } from "../utils/mockPaymentService";
 import crypto from "crypto";
@@ -11,6 +14,14 @@ const bookingRepository = AppDataSource.getRepository(BookingEntity);
 const paymentRepository = AppDataSource.getRepository(PaymentEntity);
 const vehicleRepository = AppDataSource.getRepository(VehicleEntity);
 const userRepository = AppDataSource.getRepository(UserEntity);
+
+const safeNotify = async (callback: () => Promise<unknown>) => {
+  try {
+    await callback();
+  } catch (error) {
+    console.error("Notification dispatch failed:", error);
+  }
+};
 
 export const bookingService = {
   async createBooking(
@@ -112,6 +123,32 @@ export const bookingService = {
 
       const savedBooking = await bookingRepository.save(booking);
 
+      await safeNotify(() =>
+        notificationService.createNotification({
+          recipientId: userId,
+          recipientRole: USER_ROLE.USER,
+          type: NOTIFICATION_TYPE.BOOKING_CREATED,
+          title: "Booking request submitted",
+          message: `Booking #${savedBooking.id} has been created and is waiting for admin confirmation.`,
+          data: {
+            bookingId: savedBooking.id,
+            route: "/bookings",
+          },
+        })
+      );
+
+      await safeNotify(() =>
+        notificationService.createForAdmins({
+          type: NOTIFICATION_TYPE.BOOKING_CREATED,
+          title: "New booking request",
+          message: `Booking #${savedBooking.id} was created and needs review.`,
+          data: {
+            bookingId: savedBooking.id,
+            route: "/admin/bookings",
+          },
+        })
+      );
+
       return {
         status: true,
         code: 201,
@@ -128,6 +165,7 @@ export const bookingService = {
           discount: savedBooking.discount,
           finalAmount: savedBooking.finalAmount,
           status: savedBooking.status,
+          adminRemarks: savedBooking.adminRemarks,
         },
       };
     } catch (error) {
@@ -182,6 +220,7 @@ export const bookingService = {
           finalAmount: booking.finalAmount,
           status: booking.status,
           notes: booking.notes,
+          adminRemarks: booking.adminRemarks,
           paymentStatus:
             booking.payments?.length > 0
               ? booking.payments[0].status
@@ -247,6 +286,7 @@ export const bookingService = {
           totalAmount: booking.totalAmount,
           finalAmount: booking.finalAmount,
           status: booking.status,
+          adminRemarks: booking.adminRemarks,
           paymentStatus:
             booking.payments?.length > 0
               ? booking.payments[0].status
@@ -271,10 +311,15 @@ export const bookingService = {
   },
 
   // Admin: Update booking status
-  async updateBookingStatus(bookingId: number, status: BOOKING_STATUS) {
+  async updateBookingStatus(
+    bookingId: number,
+    status: BOOKING_STATUS,
+    adminRemarks?: string
+  ) {
     try {
       const booking = await bookingRepository.findOne({
         where: { id: bookingId },
+        relations: ["user"],
       });
 
       if (!booking) {
@@ -285,8 +330,43 @@ export const bookingService = {
         };
       }
 
+      const normalizedRemarks = adminRemarks?.trim();
+
+      if (status === BOOKING_STATUS.CANCELLED && !normalizedRemarks) {
+        return {
+          status: false,
+          code: 400,
+          message: "Cancellation remark is required",
+        };
+      }
+
       booking.status = status;
+      booking.adminRemarks =
+        status === BOOKING_STATUS.CANCELLED ? normalizedRemarks : booking.adminRemarks;
       await bookingRepository.save(booking);
+
+      if (booking.user?.id) {
+        const recipientId = Number(booking.user.id);
+
+        await safeNotify(() =>
+          notificationService.createNotification({
+            recipientId,
+            recipientRole: USER_ROLE.USER,
+            type: NOTIFICATION_TYPE.BOOKING_STATUS_UPDATED,
+            title: "Booking status updated",
+            message:
+              status === BOOKING_STATUS.CANCELLED && normalizedRemarks
+                ? `Booking #${booking.id} was cancelled. Remark: ${normalizedRemarks}`
+                : `Booking #${booking.id} status changed to ${status}.`,
+            data: {
+              bookingId: booking.id,
+              status,
+              adminRemarks: booking.adminRemarks,
+              route: "/bookings",
+            },
+          })
+        );
+      }
 
       return {
         status: true,
@@ -344,6 +424,7 @@ export const bookingService = {
           finalAmount: booking.finalAmount,
           status: booking.status,
           notes: booking.notes,
+          adminRemarks: booking.adminRemarks,
           payments: booking.payments?.map((payment: PaymentEntity) => ({
             id: payment.id,
             method: payment.method,
@@ -392,6 +473,18 @@ export const bookingService = {
 
       booking.status = BOOKING_STATUS.CANCELLED;
       await bookingRepository.save(booking);
+
+      await safeNotify(() =>
+        notificationService.createForAdmins({
+          type: NOTIFICATION_TYPE.BOOKING_CANCELLED,
+          title: "Booking cancelled by user",
+          message: `Booking #${booking.id} was cancelled by user #${userId}.`,
+          data: {
+            bookingId: booking.id,
+            route: "/admin/bookings",
+          },
+        })
+      );
 
       return {
         status: true,
@@ -726,7 +819,7 @@ export const bookingService = {
 
       const payment = await paymentRepository.findOne({
         where: { id: paymentId },
-        relations: ["booking"],
+        relations: ["booking", "booking.user"],
       });
 
       if (!payment) {
@@ -758,6 +851,26 @@ export const bookingService = {
           console.log(`✅ Booking ${booking.id} confirmed after Khalti payment`);
         }
 
+        if (payment.booking?.user?.id) {
+          const recipientId = Number(payment.booking.user.id);
+
+          await safeNotify(() =>
+            notificationService.createNotification({
+              recipientId,
+              recipientRole: USER_ROLE.USER,
+              type: NOTIFICATION_TYPE.PAYMENT_SUCCESS,
+              title: "Payment successful",
+              message: `Payment for booking #${payment.booking.id} was completed successfully.`,
+              data: {
+                bookingId: payment.booking.id,
+                paymentId: payment.id,
+                transactionId: transactionId || pidx,
+                route: "/bookings",
+              },
+            })
+          );
+        }
+
         return {
           status: true,
           code: 200,
@@ -772,6 +885,38 @@ export const bookingService = {
         // Payment failed
         payment.status = PAYMENT_STATUS.FAILED;
         await paymentRepository.save(payment);
+
+        if (payment.booking?.user?.id) {
+          const recipientId = Number(payment.booking.user.id);
+
+          await safeNotify(() =>
+            notificationService.createNotification({
+              recipientId,
+              recipientRole: USER_ROLE.USER,
+              type: NOTIFICATION_TYPE.PAYMENT_FAILED,
+              title: "Payment failed",
+              message: `Payment for booking #${payment.booking.id} could not be verified.`,
+              data: {
+                bookingId: payment.booking.id,
+                paymentId: payment.id,
+                route: "/bookings",
+              },
+            })
+          );
+        }
+
+        await safeNotify(() =>
+          notificationService.createForAdmins({
+            type: NOTIFICATION_TYPE.PAYMENT_FAILED,
+            title: "Payment failure",
+            message: `Payment for booking #${payment.booking.id} failed verification.`,
+            data: {
+              bookingId: payment.booking.id,
+              paymentId: payment.id,
+              route: "/admin/payments",
+            },
+          })
+        );
 
         return {
           status: false,
@@ -884,7 +1029,7 @@ export const bookingService = {
 
       const payment = await paymentRepository.findOne({
         where: { id: paymentId },
-        relations: ["booking"],
+        relations: ["booking", "booking.user"],
       });
 
       if (!payment) {
@@ -907,6 +1052,26 @@ export const bookingService = {
         booking.status = BOOKING_STATUS.CONFIRMED;
         await bookingRepository.save(booking);
 
+        if (payment.booking?.user?.id) {
+          const recipientId = Number(payment.booking.user.id);
+
+          await safeNotify(() =>
+            notificationService.createNotification({
+              recipientId,
+              recipientRole: USER_ROLE.USER,
+              type: NOTIFICATION_TYPE.PAYMENT_SUCCESS,
+              title: "Payment successful",
+              message: `Payment for booking #${bookingId} was completed successfully.`,
+              data: {
+                bookingId,
+                paymentId,
+                transactionId: transactionCode,
+                route: "/bookings",
+              },
+            })
+          );
+        }
+
         console.log(`✅ Payment COMPLETE: booking=${bookingId}, transactionCode=${transactionCode}`);
         return {
           status: true,
@@ -917,6 +1082,39 @@ export const bookingService = {
       }
 
       console.error(`❌ Payment not complete. Status: ${status}`);
+
+      if (payment.booking?.user?.id) {
+        const recipientId = Number(payment.booking.user.id);
+
+        await safeNotify(() =>
+          notificationService.createNotification({
+            recipientId,
+            recipientRole: USER_ROLE.USER,
+            type: NOTIFICATION_TYPE.PAYMENT_FAILED,
+            title: "Payment not completed",
+            message: `Payment for booking #${bookingId} finished with status ${status}.`,
+            data: {
+              bookingId,
+              paymentId,
+              route: "/bookings",
+            },
+          })
+        );
+      }
+
+      await safeNotify(() =>
+        notificationService.createForAdmins({
+          type: NOTIFICATION_TYPE.PAYMENT_FAILED,
+          title: "Payment not completed",
+          message: `Booking #${bookingId} payment returned status ${status}.`,
+          data: {
+            bookingId,
+            paymentId,
+            route: "/admin/payments",
+          },
+        })
+      );
+
       return {
         status: false,
         code: 400,
@@ -1248,6 +1446,13 @@ export const bookingService = {
       });
       const totalRevenue = successfulPayments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
 
+      // Calculate pending revenue from pending payments
+      const pendingPayments = await paymentRepository.find({
+        where: { status: PAYMENT_STATUS.PENDING },
+        select: ["amount"],
+      });
+      const pendingRevenue = pendingPayments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+
       // Get eSewa vs Khalti breakdown
       const esewaCount = await paymentRepository.count({ where: { method: PAYMENT_METHOD.ESEWA, status: PAYMENT_STATUS.SUCCESS } });
       const khaltiCount = await paymentRepository.count({ where: { method: PAYMENT_METHOD.KHALTI, status: PAYMENT_STATUS.SUCCESS } });
@@ -1262,6 +1467,7 @@ export const bookingService = {
           failed: failedCount,
           cancelled: cancelledCount,
           totalRevenue,
+          pendingRevenue,
           byMethod: {
             esewa: esewaCount,
             khalti: khaltiCount,

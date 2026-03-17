@@ -183,11 +183,12 @@ const adminController = {
 
   async updateBookingStatus(req: Request, res: Response) {
     const { bookingId } = req.params;
-    const { status } = req.body;
+    const { status, adminRemarks } = req.body;
     const { bookingService } = await import("../service/booking.service");
     const result = await bookingService.updateBookingStatus(
       Number(bookingId),
-      status
+      status,
+      adminRemarks
     );
     sendResponse(res, {
       status: result.status,

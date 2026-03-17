@@ -147,6 +147,26 @@ export const documentController = {
     }
   },
 
+  // Admin: Get all documents with optional status filter
+  async getAllDocuments(req: Request, res: Response) {
+    try {
+      const userRole = (req as any).user?.role;
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 10;
+      const status = req.query.status as string | undefined;
+
+      if (userRole !== USER_ROLE.ADMIN) {
+        return res.status(403).json({ status: false, message: "Forbidden: Admin access required" });
+      }
+
+      const result = await documentService.getAllDocuments(page, limit, status);
+      res.status(result.code).json(result);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ status: false, message: "Internal Server Error" });
+    }
+  },
+
   // Admin: Get pending documents for verification
   async getPendingDocuments(req: Request, res: Response) {
     try {

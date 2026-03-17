@@ -3,6 +3,7 @@ import { ChatService } from "../service/chat.service";
 import jwt from "jsonwebtoken";
 
 const chatService = new ChatService();
+let ioInstance: Server | null = null;
 
 // Store online users: userId -> socketId
 const onlineUsers = new Map<string, string>();
@@ -22,6 +23,8 @@ const getCookie = (cookieHeader: string | undefined, name: string) => {
 };
 
 export const setupSocketIO = (io: Server) => {
+  ioInstance = io;
+
   // Authentication middleware
   io.use(async (socket: AuthSocket, next) => {
     try {
@@ -160,4 +163,15 @@ export const setupSocketIO = (io: Server) => {
 // Export function to get online users (for API use)
 export const getOnlineUsers = () => {
   return Array.from(onlineUsers.keys());
+};
+
+export const emitNotificationToUser = (
+  userId: number | string,
+  payload: Record<string, any>
+) => {
+  if (!ioInstance) {
+    return;
+  }
+
+  ioInstance.to(`user:${String(userId)}`).emit("notification:new", payload);
 };

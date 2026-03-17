@@ -5,10 +5,21 @@ import { AuthEntity } from "../entities/auth.entity";
 import cloudinary from "../config/cloudinary.config";
 import { Request } from "express";
 import * as fs from "fs";
+import { USER_ROLE } from "../constant/enums";
+import { notificationService } from "./notification.service";
+import { NOTIFICATION_TYPE } from "../entities/notification.entity";
 
 const documentRepository = AppDataSource.getRepository(DocumentEntity);
 const userRepository = AppDataSource.getRepository(UserEntity);
 const authRepository = AppDataSource.getRepository(AuthEntity);
+
+const safeNotify = async (callback: () => Promise<unknown>) => {
+  try {
+    await callback();
+  } catch (error) {
+    console.error("Notification dispatch failed:", error);
+  }
+};
 
 // Upload document to Cloudinary
 const uploadDocumentToCloudinary = async (file: Express.Multer.File): Promise<string> => {
@@ -128,6 +139,19 @@ export const documentService = {
         documentCount: userWithDocs?.documents?.length || 0,
         documents: userWithDocs?.documents,
       });
+
+      await safeNotify(() =>
+        notificationService.createForAdmins({
+          type: NOTIFICATION_TYPE.DOCUMENT_SUBMITTED,
+          title: "New verification document",
+          message: `User #${userId} submitted a ${documentType} document for review.`,
+          data: {
+            documentId: savedDocument.id,
+            userId,
+            route: "/admin/verification",
+          },
+        })
+      );
 
       return {
         status: true,
@@ -264,6 +288,45 @@ export const documentService = {
     }
   },
 
+  // Get all documents with optional status filter (for admin)
+  async getAllDocuments(page: number = 1, limit: number = 10, status?: string) {
+    try {
+      const skip = (page - 1) * limit;
+      const where: any = {};
+      if (status && status !== 'all') {
+        where.verificationStatus = status as VERIFICATION_STATUS;
+      }
+
+      const [documents, total] = await documentRepository.findAndCount({
+        where,
+        relations: ["user", "user.auth"],
+        order: { createdAt: "DESC" },
+        take: limit,
+        skip,
+      });
+
+      return {
+        status: true,
+        code: 200,
+        message: "Documents retrieved successfully",
+        data: documents,
+        pagination: {
+          page,
+          limit,
+          total,
+          pages: Math.ceil(total / limit),
+        },
+      };
+    } catch (error) {
+      console.error("Error retrieving documents:", error);
+      return {
+        status: false,
+        code: 500,
+        message: "Internal Server Error",
+      };
+    }
+  },
+
   // Get pending documents (for admin verification)
   async getPendingDocuments(page: number = 1, limit: number = 10) {
     try {
@@ -359,6 +422,29 @@ export const documentService = {
           await authRepository.save(user.auth);
         }
       }
+
+      await safeNotify(() =>
+        notificationService.createNotification({
+          recipientId: document.userId,
+          recipientRole: USER_ROLE.USER,
+          type: NOTIFICATION_TYPE.DOCUMENT_VERIFIED,
+          title:
+            approvalStatus === VERIFICATION_STATUS.APPROVED
+              ? "Document approved"
+              : "Document rejected",
+          message:
+            approvalStatus === VERIFICATION_STATUS.APPROVED
+              ? `Your ${document.documentType} document was approved.`
+              : `Your ${document.documentType} document was rejected.${
+                  rejectionReason ? ` Reason: ${rejectionReason}` : ""
+                }`,
+          data: {
+            documentId: document.id,
+            status: approvalStatus,
+            route: "/profile",
+          },
+        })
+      );
 
       return {
         status: true,

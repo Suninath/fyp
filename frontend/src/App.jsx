@@ -22,6 +22,7 @@ import VehicleManagement from "./pages/admin/components/VehicleManagement";
 import UserVerification from "./pages/admin/components/UserVerification";
 import BookingManagement from "./pages/admin/components/BookingManagement";
 import PaymentManagement from "./pages/admin/components/PaymentManagement";
+import DocumentManagement from "./pages/admin/components/DocumentManagement";
 import Loading from "./components/common/loading";
 import Home from "./pages/public/Home";
 import About from "./pages/public/About";
@@ -194,6 +195,14 @@ function AppContent() {
           element={
             <ProtectedRoute allowedRoles={["admin"]}>
               <PaymentManagement />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/documents"
+          element={
+            <ProtectedRoute allowedRoles={["admin"]}>
+              <DocumentManagement />
             </ProtectedRoute>
           }
         />

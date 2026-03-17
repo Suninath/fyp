@@ -10,14 +10,13 @@ import {
   FileText,
   UserCheck,
   Settings,
-  Bell,
   ChevronRight,
-  Menu,
   Calendar,
   CreditCard
 } from "lucide-react";
 import { Button } from "../../../ui/ui/button";
 import { userLogout } from "../../../rtk/thunk/authThunk";
+import NotificationBell from "../../../components/common/NotificationBell";
 
 const AdminLayout = ({ children, activeTab }) => {
   const navigate = useNavigate();
@@ -127,10 +126,7 @@ const AdminLayout = ({ children, activeTab }) => {
             </p>
           </div>
           <div className="flex items-center gap-4">
-            <button className="relative p-2 text-gray-400 hover:text-purple hover:bg-light-bg rounded-lg transition">
-              <Bell size={20} />
-              <span className="absolute top-1 right-1 w-2 h-2 bg-red rounded-full"></span>
-            </button>
+            <NotificationBell />
             <button className="p-2 text-gray-400 hover:text-purple hover:bg-light-bg rounded-lg transition">
               <Settings size={20} />
             </button>

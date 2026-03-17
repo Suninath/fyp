@@ -5,13 +5,25 @@ import { AuthEntity } from "../entities/auth.entity";
 import { VehicleEntity } from "../entities/vehicle.entity";
 import { DocumentEntity, VERIFICATION_STATUS } from "../entities/document.entity";
 import { BookingEntity, BOOKING_STATUS } from "../entities/booking.entity";
+import { PaymentEntity, PAYMENT_STATUS } from "../entities/payment.entity";
 import { USER_ROLE } from "../constant/enums";
+import { notificationService } from "./notification.service";
+import { NOTIFICATION_TYPE } from "../entities/notification.entity";
 
 const userRepository = AppDataSource.getRepository(UserEntity);
 const authRepository = AppDataSource.getRepository(AuthEntity);
 const vehicleRepository = AppDataSource.getRepository(VehicleEntity);
 const documentRepository = AppDataSource.getRepository(DocumentEntity);
 const bookingRepository = AppDataSource.getRepository(BookingEntity);
+const paymentRepository = AppDataSource.getRepository(PaymentEntity);
+
+const safeNotify = async (callback: () => Promise<unknown>) => {
+  try {
+    await callback();
+  } catch (error) {
+    console.error("Notification dispatch failed:", error);
+  }
+};
 
 const adminService = {
   async getAllUsers({ search, page = 1, limit = 10 }: { search?: string; page?: number; limit?: number } = {}) {
@@ -84,6 +96,20 @@ const adminService = {
       user.auth.isBlocked = true;
       await authRepository.save(user.auth);
 
+      await safeNotify(() =>
+        notificationService.createNotification({
+          recipientId: user.id as number,
+          recipientRole: USER_ROLE.USER,
+          type: NOTIFICATION_TYPE.ACCOUNT_STATUS_CHANGED,
+          title: "Account blocked",
+          message: "Your account has been blocked by an administrator.",
+          data: {
+            userId: user.id,
+            route: "/profile",
+          },
+        })
+      );
+
       return {
         status: true,
         code: 200,
@@ -116,6 +142,20 @@ const adminService = {
 
       user.auth.isBlocked = false;
       await authRepository.save(user.auth);
+
+      await safeNotify(() =>
+        notificationService.createNotification({
+          recipientId: user.id as number,
+          recipientRole: USER_ROLE.USER,
+          type: NOTIFICATION_TYPE.ACCOUNT_STATUS_CHANGED,
+          title: "Account unblocked",
+          message: "Your account has been unblocked. You can continue using AutoGear.",
+          data: {
+            userId: user.id,
+            route: "/profile",
+          },
+        })
+      );
 
       return {
         status: true,
@@ -213,8 +253,18 @@ const adminService = {
         }
       });
 
-      // For revenue, we'd need to implement actual transaction tracking
-      const totalRevenue = 0; // Placeholder
+      // Payment amount stats for dashboard cards
+      const successfulPayments = await paymentRepository.find({
+        where: { status: PAYMENT_STATUS.SUCCESS },
+        select: ["amount"],
+      });
+      const pendingPayments = await paymentRepository.find({
+        where: { status: PAYMENT_STATUS.PENDING },
+        select: ["amount"],
+      });
+
+      const totalRevenue = successfulPayments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+      const pendingPaymentAmount = pendingPayments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
 
       return {
         status: true,
@@ -233,7 +283,8 @@ const adminService = {
           confirmedBookings,
           cancelledBookings,
           completedBookings,
-          totalRevenue
+          totalRevenue,
+          pendingPaymentAmount
         }
       };
     } catch (error) {
@@ -697,6 +748,25 @@ const adminService = {
 
       await authRepository.save(user.auth);
       console.log(`✅ User ${userId} verification updated: accountVerified=${user.auth.accountVerified}`);
+
+      await safeNotify(() =>
+        notificationService.createNotification({
+          recipientId: user.id as number,
+          recipientRole: USER_ROLE.USER,
+          type: NOTIFICATION_TYPE.ACCOUNT_STATUS_CHANGED,
+          title: approved ? "Account verified" : "Account verification rejected",
+          message: approved
+            ? "Your account has been verified successfully."
+            : `Your account verification was rejected.${
+                rejectionReason ? ` Reason: ${rejectionReason}` : ""
+              }`,
+          data: {
+            userId: user.id,
+            accountVerified: approved,
+            route: "/profile",
+          },
+        })
+      );
 
       return {
         status: true,

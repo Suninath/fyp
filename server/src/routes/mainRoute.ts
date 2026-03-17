@@ -7,6 +7,7 @@ import bookingRoute from "./booking.routes";
 import chatRoute from "./chat.routes";
 import documentRoute from "./document.routes";
 import reviewRoute from "./review.routes";
+import notificationRoute from "./notification.routes";
 
 const router = express.Router();
 
@@ -18,5 +19,6 @@ router.use("/api/v1/bookings", bookingRoute);
 router.use("/api/v1/chat", chatRoute);
 router.use("/api/v1/documents", documentRoute);
 router.use("/api/v1/reviews", reviewRoute);
+router.use("/api/v1/notifications", notificationRoute);
 
 export default router;

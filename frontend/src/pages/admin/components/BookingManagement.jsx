@@ -42,6 +42,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "../../../ui/ui/dialog";
+import { Textarea } from "../../../ui/ui/textarea";
 
 import AdminLayout from "./AdminLayout";
 import { getAllBookings, updateBookingStatus, getBookingStats } from "../../../rtk/thunk/adminThunk";
@@ -61,6 +62,7 @@ const BookingManagement = () => {
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [isStatusDialogOpen, setIsStatusDialogOpen] = useState(false);
   const [newStatus, setNewStatus] = useState("");
+  const [adminRemarks, setAdminRemarks] = useState("");
 
   /* ---------------- FETCH BOOKINGS ---------------- */
   useEffect(() => {
@@ -81,19 +83,29 @@ const BookingManagement = () => {
   /* ---------------- HANDLERS ---------------- */
   const handleStatusChange = async () => {
     if (!selectedBooking || !newStatus) return;
+    if (newStatus === "Cancelled" && !adminRemarks.trim()) return;
+
     setActionLoading(selectedBooking.id);
-    await dispatch(updateBookingStatus({ bookingId: selectedBooking.id, status: newStatus }));
+    await dispatch(
+      updateBookingStatus({
+        bookingId: selectedBooking.id,
+        status: newStatus,
+        adminRemarks: newStatus === "Cancelled" ? adminRemarks.trim() : undefined,
+      })
+    );
     // Refresh stats after status change
     dispatch(getBookingStats());
     setActionLoading(null);
     setIsStatusDialogOpen(false);
     setSelectedBooking(null);
     setNewStatus("");
+    setAdminRemarks("");
   };
 
   const openStatusDialog = (booking, status) => {
     setSelectedBooking(booking);
     setNewStatus(status);
+    setAdminRemarks(status === "Cancelled" ? booking.adminRemarks || "" : "");
     setIsStatusDialogOpen(true);
   };
 
@@ -535,6 +547,13 @@ const BookingManagement = () => {
                 <div className="text-xs text-gray-500">
                   Created: {new Date(selectedBooking.createdAt).toLocaleString()}
                 </div>
+
+                {selectedBooking.adminRemarks && (
+                  <div className="bg-red/5 rounded-lg p-4 border border-red/10">
+                    <h4 className="font-semibold mb-2 text-red">Admin Remark</h4>
+                    <p className="text-sm text-gray-700">{selectedBooking.adminRemarks}</p>
+                  </div>
+                )}
               </div>
             )}
           </DialogContent>
@@ -549,8 +568,29 @@ const BookingManagement = () => {
                 Are you sure you want to change the booking status to "{newStatus}"?
               </DialogDescription>
             </DialogHeader>
+            {newStatus === "Cancelled" && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700">
+                  Cancellation Remark
+                </label>
+                <Textarea
+                  value={adminRemarks}
+                  onChange={(event) => setAdminRemarks(event.target.value)}
+                  placeholder="Tell the user why this booking request is being cancelled"
+                />
+                <p className="text-xs text-gray-500">
+                  This remark will be shown to the user in their booking history.
+                </p>
+              </div>
+            )}
             <DialogFooter>
-              <Button variant="outline" onClick={() => setIsStatusDialogOpen(false)}>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setIsStatusDialogOpen(false);
+                  setAdminRemarks("");
+                }}
+              >
                 Cancel
               </Button>
               <Button
@@ -562,7 +602,7 @@ const BookingManagement = () => {
                     ? "bg-red text-white hover:bg-red-600"
                     : "bg-blue text-white hover:bg-blue-600"
                 }
-                disabled={actionLoading}
+                disabled={actionLoading || (newStatus === "Cancelled" && !adminRemarks.trim())}
               >
                 {actionLoading ? "Updating..." : `Mark as ${newStatus}`}
               </Button>

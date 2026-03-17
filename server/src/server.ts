@@ -9,6 +9,7 @@ import mainRouter from "./routes/mainRoute";
 import AppDataSource from "./config/db.config";
 import { setupSocketIO } from "./config/socket.config";
 import { UserEntity } from "./entities/user.entity";
+import { scheduleBookingAutoCancellation } from "./scheduler/bookingAutoCancel.scheduler";
 
 const startServer = async () => {
   try {
@@ -72,6 +73,8 @@ const startServer = async () => {
       .update(UserEntity)
       .set({ isOnline: false, lastSeen: new Date() })
       .execute();
+
+    scheduleBookingAutoCancellation();
 
     const port = process.env.PORT || 8080;
     httpServer.listen(port, () =>
