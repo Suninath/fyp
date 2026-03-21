@@ -14,6 +14,9 @@ router.get("/conversations", chatController.getConversations);
 // Start a conversation
 router.post("/conversations/start", chatController.startConversation);
 
+// Start a vehicle-interest conversation with admin
+router.post("/conversations/interest", chatController.startInterestConversation);
+
 // Get messages in a conversation
 router.get("/messages/:otherUserId", chatController.getMessages);
 

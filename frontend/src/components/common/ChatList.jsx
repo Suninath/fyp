@@ -1,15 +1,17 @@
 import React, { useEffect } from "react";
 import { useSelector, useDispatch } from "react-redux";
-import { useNavigate } from "react-router";
 import { MessageCircle, Circle, Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "../../ui/ui/card";
-import { Button } from "../../ui/ui/button";
 import { Badge } from "../../ui/ui/badge";
 import { getConversations } from "../../rtk/thunk/chatThunk";
 
-const ChatList = ({ onSelectUser }) => {
+const ChatList = ({
+  onSelectUser,
+  title = "Conversations",
+  emptyTitle = "No conversations yet",
+  emptySubtext = "Messages from your conversations will appear here",
+}) => {
   const dispatch = useDispatch();
-  const navigate = useNavigate();
   const { conversations = [], conversationsLoading } = useSelector((state) => state.chat);
 
   useEffect(() => {
@@ -46,7 +48,7 @@ const ChatList = ({ onSelectUser }) => {
           <div className="p-2 bg-purple/10 rounded-lg">
             <MessageCircle className="text-purple" size={24} />
           </div>
-          Conversations
+          {title}
         </CardTitle>
       </CardHeader>
       <CardContent className="pt-6">
@@ -61,8 +63,8 @@ const ChatList = ({ onSelectUser }) => {
                 <MessageCircle size={48} className="text-gray-400" />
               </div>
             </div>
-            <p className="text-gray-600 font-medium text-lg">No conversations yet</p>
-            <p className="text-gray-500 text-sm mt-2">Start chatting with vehicle sellers</p>
+            <p className="text-gray-600 font-medium text-lg">{emptyTitle}</p>
+            <p className="text-gray-500 text-sm mt-2">{emptySubtext}</p>
           </div>
         ) : (
           <div className="space-y-2">
@@ -111,7 +113,7 @@ const ChatList = ({ onSelectUser }) => {
                   </div>
                   <p className={`text-sm truncate ${
                     conv.unreadCount > 0
-                      ? "text-gray-800 font-medium text-gray-900"
+                      ? "font-medium text-gray-900"
                       : "text-gray-600"
                   }`}>
                     {conv.lastMessageText || "No messages yet"}

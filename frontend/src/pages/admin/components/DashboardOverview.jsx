@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
 import {
   Users,
@@ -55,6 +56,8 @@ import { Input } from "../../../ui/ui/input";
 import { Label } from "../../../ui/ui/label";
 import AdminLayout from "./AdminLayout";
 import { getDashboardStats, getPendingVerificationUsers, verifyUserAccount } from "../../../rtk/thunk/adminThunk";
+import ChatList from "../../../components/common/ChatList";
+import ChatDialog from "../../../components/common/ChatDialog";
 
 // Theme colors from tailwind.config.js
 const COLORS = ['#00b300', '#0096FF', '#e50000']; // green, blue, red
@@ -62,6 +65,7 @@ const DOC_COLORS = ['#0096FF', '#00b300', '#e50000']; // blue, green, red
 
 const DashboardOverview = () => {
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   const { dashboardStats, pendingUsers, pendingUsersPagination, loading } = useSelector((state) => state.admin);
 
   const [page, setPage] = useState(1);
@@ -70,6 +74,8 @@ const DashboardOverview = () => {
   const [showRejectDialog, setShowRejectDialog] = useState(false);
   const [rejectionReason, setRejectionReason] = useState("");
   const [verifying, setVerifying] = useState(false);
+  const [isAdminChatOpen, setIsAdminChatOpen] = useState(false);
+  const [selectedChatUser, setSelectedChatUser] = useState(null);
 
   useEffect(() => {
     dispatch(getDashboardStats());
@@ -157,6 +163,11 @@ const DashboardOverview = () => {
     dispatch(getPendingVerificationUsers({ page, limit: 5 }));
   };
 
+  const handleSelectChatUser = (user) => {
+    setSelectedChatUser(user);
+    setIsAdminChatOpen(true);
+  };
+
   return (
     <AdminLayout activeTab="dashboard">
       <div className="space-y-8">
@@ -224,37 +235,6 @@ const DashboardOverview = () => {
                   </div>
                   <div className={`p-4 rounded-xl ${bgColor}`}>
                     <Icon className={`h-6 w-6 ${iconColor}`} />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-
-        {/* Booking Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-          {[
-            { label: "Total Bookings", value: dashboardStats?.totalBookings || 0, icon: Calendar, bgColor: "bg-purple/10", iconColor: "text-purple" },
-            { label: "Pending", value: dashboardStats?.pendingBookings || 0, icon: Clock, bgColor: "bg-amber/10", iconColor: "text-amber" },
-            { label: "Confirmed", value: dashboardStats?.confirmedBookings || 0, icon: CheckCircle, bgColor: "bg-green/10", iconColor: "text-green" },
-            { label: "Completed", value: dashboardStats?.completedBookings || 0, icon: FileCheck, bgColor: "bg-blue/10", iconColor: "text-blue" },
-            { label: "Cancelled", value: dashboardStats?.cancelledBookings || 0, icon: XCircle, bgColor: "bg-red/10", iconColor: "text-red" }
-          ].map(({ label, value, icon: Icon, bgColor, iconColor }) => (
-            <Card key={label} className="bg-white border border-gray-200 shadow-sm hover:shadow-lg transition-all duration-300 rounded-xl overflow-hidden">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs text-gray-500 font-medium mb-1">{label}</p>
-                    {loading ? (
-                      <div className="animate-pulse">
-                        <div className="h-7 w-12 bg-gray-200 rounded"></div>
-                      </div>
-                    ) : (
-                      <p className="text-2xl font-bold text-gray-900">{value}</p>
-                    )}
-                  </div>
-                  <div className={`p-3 rounded-xl ${bgColor}`}>
-                    <Icon className={`h-5 w-5 ${iconColor}`} />
                   </div>
                 </div>
               </CardContent>
@@ -610,7 +590,38 @@ const DashboardOverview = () => {
             )}
           </CardContent>
         </Card>
+
+        {/* Admin Chat Box */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-xl font-semibold text-gray-900">Admin Chat Box</h3>
+              <p className="text-sm text-gray-500">Handle user interest and support conversations directly from the dashboard.</p>
+            </div>
+            <Button
+              variant="outline"
+              onClick={() => navigate("/admin/messages")}
+              className="border-purple text-purple hover:bg-purple hover:text-white"
+            >
+              Open Full Inbox
+            </Button>
+          </div>
+
+          <ChatList
+            onSelectUser={handleSelectChatUser}
+            title="Admin Conversations"
+            emptySubtext="User inquiries and vehicle-interest requests will appear here."
+          />
+        </div>
       </div>
+
+      {selectedChatUser && (
+        <ChatDialog
+          isOpen={isAdminChatOpen}
+          onClose={() => setIsAdminChatOpen(false)}
+          otherUser={selectedChatUser}
+        />
+      )}
 
       {/* User Details Dialog */}
       <Dialog open={showUserDialog} onOpenChange={setShowUserDialog}>

@@ -20,6 +20,7 @@ const CreateVehicleForm = () => {
     model: "",
     year: "",
     price: "",
+    category: "Buy/Sell",
     mileage: "",
     fuelType: "",
     transmission: "",

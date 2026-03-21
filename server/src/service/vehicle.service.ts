@@ -1,13 +1,76 @@
 import { Request } from "express";
 import AppDataSource from "../config/db.config";
 import { VehicleEntity, VEHICLE_CATEGORY } from "../entities/vehicle.entity";
+import { VehicleViewEntity } from "../entities/vehicle_view.entity";
+import { BookingEntity } from "../entities/booking.entity";
 import { UserEntity } from "../entities/user.entity";
+import { USER_ROLE } from "../constant/enums";
 import cloudinary from "../config/cloudinary.config";
 import fs from "fs";
 import path from "path";
 
 const vehicleRepository = AppDataSource.getRepository(VehicleEntity);
 const userRepository = AppDataSource.getRepository(UserEntity);
+const vehicleViewRepository = AppDataSource.getRepository(VehicleViewEntity);
+const bookingRepository = AppDataSource.getRepository(BookingEntity);
+const VEHICLE_CATEGORY_VALUES = Object.values(VEHICLE_CATEGORY);
+const VEHICLE_PRICE_MAX = 9_999_999_999.99; // numeric(12,2) max absolute value is < 10^10
+const VEHICLE_YEAR_MIN = 1886;
+const VEHICLE_YEAR_MAX = new Date().getFullYear() + 1;
+const VEHICLE_MILEAGE_MAX = 2_147_483_647; // PostgreSQL int upper bound
+
+const isValidVehicleCategory = (category: string): category is VEHICLE_CATEGORY => {
+  return VEHICLE_CATEGORY_VALUES.includes(category as VEHICLE_CATEGORY);
+};
+
+const hasValue = (value: unknown) => value !== undefined && value !== null && value !== "";
+
+const toNumber = (value: unknown) => Number(value);
+
+const getAuthenticatedUserId = (req: Request): number | null => {
+  const maybeUser = (req as any).user;
+  if (!maybeUser?.id) return null;
+
+  const parsedUserId = typeof maybeUser.id === "string" ? parseInt(maybeUser.id, 10) : maybeUser.id;
+  if (!Number.isInteger(parsedUserId) || parsedUserId <= 0) {
+    return null;
+  }
+
+  return parsedUserId;
+};
+
+const trackVehicleDetailView = async (req: Request, vehicleId: number) => {
+  const maybeUser = (req as any).user;
+  const viewerId = getAuthenticatedUserId(req);
+
+  // Track only signed-in regular users viewing public vehicle details.
+  if (!viewerId || maybeUser?.role !== USER_ROLE.USER) {
+    return;
+  }
+
+  const existingView = await vehicleViewRepository.findOne({
+    where: {
+      viewerId,
+      vehicleId,
+    },
+  });
+
+  if (existingView) {
+    existingView.viewCount = Number(existingView.viewCount || 0) + 1;
+    existingView.lastViewedAt = new Date();
+    await vehicleViewRepository.save(existingView);
+    return;
+  }
+
+  const newView = vehicleViewRepository.create({
+    viewerId,
+    vehicleId,
+    viewCount: 1,
+    lastViewedAt: new Date(),
+  });
+
+  await vehicleViewRepository.save(newView);
+};
 
 // Helper function to upload images to Cloudinary
 const uploadImagesToCloudinary = async (
@@ -46,6 +109,7 @@ const vehicleService = {
   async createVehicle(req: Request) {
     try {
       const user = (req as any).user;
+      const isAdmin = user?.role === USER_ROLE.ADMIN;
       const {
         name,
         make,
@@ -59,8 +123,26 @@ const vehicleService = {
         location,
         condition,
         description,
-        category = VEHICLE_CATEGORY.BUY_SELL,
+        category,
       } = req.body;
+
+      const listingCategory = category || VEHICLE_CATEGORY.BUY_SELL;
+
+      if (!isValidVehicleCategory(listingCategory)) {
+        return {
+          status: false,
+          code: 400,
+          message: "Invalid vehicle category",
+        };
+      }
+
+      if (listingCategory === VEHICLE_CATEGORY.RENTING && !isAdmin) {
+        return {
+          status: false,
+          code: 403,
+          message: "Only admin can create rental vehicle listings",
+        };
+      }
 
       if (!name || !make || !model || !year || !price) {
         return {
@@ -68,6 +150,53 @@ const vehicleService = {
           code: 400,
           message: "Name, make, model, year, and price are required",
         };
+      }
+
+      const parsedYear = toNumber(year);
+      if (
+        !Number.isInteger(parsedYear) ||
+        parsedYear < VEHICLE_YEAR_MIN ||
+        parsedYear > VEHICLE_YEAR_MAX
+      ) {
+        return {
+          status: false,
+          code: 400,
+          message: `Year must be between ${VEHICLE_YEAR_MIN} and ${VEHICLE_YEAR_MAX}`,
+        };
+      }
+
+      const parsedPrice = toNumber(price);
+      if (!Number.isFinite(parsedPrice) || parsedPrice <= 0) {
+        return {
+          status: false,
+          code: 400,
+          message: "Price must be a valid number greater than 0",
+        };
+      }
+
+      if (parsedPrice > VEHICLE_PRICE_MAX) {
+        return {
+          status: false,
+          code: 400,
+          message: `Price must be less than or equal to ${VEHICLE_PRICE_MAX}`,
+        };
+      }
+
+      let parsedMileage: number | undefined = undefined;
+      if (hasValue(mileage)) {
+        const mileageNumber = toNumber(mileage);
+        if (
+          !Number.isInteger(mileageNumber) ||
+          mileageNumber < 0 ||
+          mileageNumber > VEHICLE_MILEAGE_MAX
+        ) {
+          return {
+            status: false,
+            code: 400,
+            message: "Mileage must be a whole number between 0 and 2147483647",
+          };
+        }
+        parsedMileage = mileageNumber;
       }
 
       // Verify user exists and is verified
@@ -85,7 +214,7 @@ const vehicleService = {
       }
 
       // Check if user is verified
-      if (!uploader.auth?.accountVerified) {
+      if (!uploader.auth?.accountVerified && !isAdmin) {
         return {
           status: false,
           code: 403,
@@ -105,9 +234,9 @@ const vehicleService = {
         name,
         make,
         model,
-        year: parseInt(year),
-        price: parseFloat(price),
-        mileage: mileage ? parseInt(mileage) : undefined,
+        year: parsedYear,
+        price: parsedPrice,
+        mileage: parsedMileage,
         fuelType,
         transmission,
         color,
@@ -115,7 +244,7 @@ const vehicleService = {
         condition,
         description,
         images: uploadedImages.length > 0 ? uploadedImages : [],
-        category,
+        category: listingCategory,
         uploader,
       });
 
@@ -273,6 +402,13 @@ const vehicleService = {
         };
       }
 
+      // Non-blocking analytics write for logged-in users.
+      try {
+        await trackVehicleDetailView(req, vehicle.id as number);
+      } catch (analyticsError) {
+        console.error("Failed to track vehicle view:", analyticsError);
+      }
+
       return {
         status: true,
         code: 200,
@@ -294,11 +430,6 @@ const vehicleService = {
           images: vehicle.images,
           category: vehicle.category,
           createdAt: vehicle.createdAt,
-          uploader: {
-            id: vehicle.uploader.id,
-            name: vehicle.uploader.name,
-            email: vehicle.uploader.auth?.email, // Optional: share email if public? Maybe just ID and Name.
-          },
         },
       };
     } catch (error) {
@@ -311,8 +442,82 @@ const vehicleService = {
   async updateVehicle(req: Request) {
     try {
       const user = (req as any).user;
+      const isAdmin = user?.role === USER_ROLE.ADMIN;
       const { id } = req.params;
       const updateData = req.body;
+
+      if (updateData.category !== undefined) {
+        if (!isValidVehicleCategory(updateData.category)) {
+          return {
+            status: false,
+            code: 400,
+            message: "Invalid vehicle category",
+          };
+        }
+
+        if (updateData.category === VEHICLE_CATEGORY.RENTING && !isAdmin) {
+          return {
+            status: false,
+            code: 403,
+            message: "Only admin can create or update rental vehicle listings",
+          };
+        }
+      }
+
+      let parsedUpdateYear: number | undefined;
+      if (hasValue(updateData.year)) {
+        const yearNumber = toNumber(updateData.year);
+        if (
+          !Number.isInteger(yearNumber) ||
+          yearNumber < VEHICLE_YEAR_MIN ||
+          yearNumber > VEHICLE_YEAR_MAX
+        ) {
+          return {
+            status: false,
+            code: 400,
+            message: `Year must be between ${VEHICLE_YEAR_MIN} and ${VEHICLE_YEAR_MAX}`,
+          };
+        }
+        parsedUpdateYear = yearNumber;
+      }
+
+      let parsedUpdatePrice: number | undefined;
+      if (hasValue(updateData.price)) {
+        const priceNumber = toNumber(updateData.price);
+        if (!Number.isFinite(priceNumber) || priceNumber <= 0) {
+          return {
+            status: false,
+            code: 400,
+            message: "Price must be a valid number greater than 0",
+          };
+        }
+
+        if (priceNumber > VEHICLE_PRICE_MAX) {
+          return {
+            status: false,
+            code: 400,
+            message: `Price must be less than or equal to ${VEHICLE_PRICE_MAX}`,
+          };
+        }
+        parsedUpdatePrice = priceNumber;
+      }
+
+      let parsedUpdateMileage: number | undefined;
+      if (hasValue(updateData.mileage)) {
+        const mileageNumber = toNumber(updateData.mileage);
+        if (
+          !Number.isInteger(mileageNumber) ||
+          mileageNumber < 0 ||
+          mileageNumber > VEHICLE_MILEAGE_MAX
+        ) {
+          return {
+            status: false,
+            code: 400,
+            message: "Mileage must be a whole number between 0 and 2147483647",
+          };
+        }
+        parsedUpdateMileage = mileageNumber;
+      }
 
       // Check if vehicle exists and belongs to user
       const vehicle = await vehicleRepository.findOne({
@@ -365,11 +570,9 @@ const vehicleService = {
       const updatedVehicle = await vehicleRepository.save({
         ...vehicle,
         ...updateData,
-        year: updateData.year ? parseInt(updateData.year) : vehicle.year,
-        price: updateData.price ? parseFloat(updateData.price) : vehicle.price,
-        mileage: updateData.mileage
-          ? parseInt(updateData.mileage)
-          : vehicle.mileage,
+        year: parsedUpdateYear ?? vehicle.year,
+        price: parsedUpdatePrice ?? vehicle.price,
+        mileage: parsedUpdateMileage ?? vehicle.mileage,
         images: imagesToUpdate,
       });
 
@@ -406,11 +609,20 @@ const vehicleService = {
     try {
       const user = (req as any).user;
       const { id } = req.params;
+      const parsedVehicleId = parseInt(id, 10);
+
+      if (!Number.isInteger(parsedVehicleId) || parsedVehicleId <= 0) {
+        return {
+          status: false,
+          code: 400,
+          message: "Invalid vehicle id",
+        };
+      }
 
       // Check if vehicle exists and belongs to user
       const vehicle = await vehicleRepository.findOne({
         where: {
-          id: parseInt(id),
+          id: parsedVehicleId,
           uploader: { id: user.id },
           isBlocked: false,
         },
@@ -421,6 +633,18 @@ const vehicleService = {
           status: false,
           code: 404,
           message: "Vehicle not found or access denied",
+        };
+      }
+
+      const bookingCount = await bookingRepository.count({
+        where: { vehicle: { id: parsedVehicleId } },
+      });
+
+      if (bookingCount > 0) {
+        return {
+          status: false,
+          code: 409,
+          message: "Cannot delete vehicle because it has related bookings. Cancel or remove those bookings first.",
         };
       }
 
@@ -492,11 +716,6 @@ const vehicleService = {
             images: vehicle.images,
             category: vehicle.category,
             createdAt: vehicle.createdAt,
-            uploader: {
-              name: vehicle.uploader?.name,
-              id: vehicle.uploader?.id,
-              // Add other uploader safe fields
-            },
           })),
           pagination: {
             currentPage: parseInt(page as string),

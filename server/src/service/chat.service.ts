@@ -1,7 +1,11 @@
 import AppDataSource from "../config/db.config";
+import { USER_ROLE } from "../constant/enums";
 import { Conversation } from "../entities/conversation.entity";
 import { Message } from "../entities/message.entity";
+import { VehicleEntity } from "../entities/vehicle.entity";
 import { UserEntity } from "../entities/user.entity";
+import { NOTIFICATION_TYPE } from "../entities/notification.entity";
+import { notificationService } from "./notification.service";
 import { In } from "typeorm";
 
 export class ChatService {
@@ -17,14 +21,47 @@ export class ChatService {
     return AppDataSource.getRepository(UserEntity);
   }
 
+  private get vehicleRepo() {
+    return AppDataSource.getRepository(VehicleEntity);
+  }
+
+  private async getUserWithAuth(userId: number) {
+    return this.userRepo.findOne({
+      where: { id: userId },
+      relations: ["auth"],
+    });
+  }
+
+  private async getPrimaryAdminUser() {
+    return this.userRepo
+      .createQueryBuilder("user")
+      .innerJoinAndSelect("user.auth", "auth", "auth.role = :role", {
+        role: USER_ROLE.ADMIN,
+      })
+      .orderBy("user.id", "ASC")
+      .getOne();
+  }
+
+  private validateChatPermissionBetweenUsers(role1: USER_ROLE, role2: USER_ROLE) {
+    const userMustChatWithAdminOnly =
+      (role1 === USER_ROLE.USER && role2 !== USER_ROLE.ADMIN) ||
+      (role2 === USER_ROLE.USER && role1 !== USER_ROLE.ADMIN);
+
+    if (userMustChatWithAdminOnly) {
+      throw new Error("Users can only chat with admin");
+    }
+  }
+
   // Get or create conversation between two users
   async getOrCreateConversation(userId1: number, userId2: number) {
-    const user1 = await this.userRepo.findOne({ where: { id: userId1 } });
-    const user2 = await this.userRepo.findOne({ where: { id: userId2 } });
+    const user1 = await this.getUserWithAuth(userId1);
+    const user2 = await this.getUserWithAuth(userId2);
 
-    if (!user1 || !user2) {
+    if (!user1 || !user2 || !user1.auth || !user2.auth) {
       throw new Error("User not found");
     }
+
+    this.validateChatPermissionBetweenUsers(user1.auth.role, user2.auth.role);
 
     // Check if conversation exists (in either direction)
     let conversation = await this.conversationRepo
@@ -33,7 +70,7 @@ export class ChatService {
       .leftJoinAndSelect("conversation.user2", "user2")
       .where(
         "(conversation.user1.id = :userId1 AND conversation.user2.id = :userId2) OR (conversation.user1.id = :userId2 AND conversation.user2.id = :userId1)",
-        { userId1, userId2 }
+        { userId1, userId2 },
       )
       .getOne();
 
@@ -50,6 +87,11 @@ export class ChatService {
 
   // Get all conversations for a user
   async getUserConversations(userId: number) {
+    const requestUser = await this.getUserWithAuth(userId);
+    if (!requestUser?.auth) {
+      throw new Error("User not found");
+    }
+
     const conversations = await this.conversationRepo
       .createQueryBuilder("conversation")
       .leftJoinAndSelect("conversation.user1", "user1")
@@ -58,36 +100,130 @@ export class ChatService {
       .orderBy("conversation.lastMessageAt", "DESC")
       .getMany();
 
-    return conversations.map((conv) => {
-      const otherUser = conv.user1.id === userId ? conv.user2 : conv.user1;
-      const unreadCount = conv.user1.id === userId ? conv.user1UnreadCount : conv.user2UnreadCount;
+    if (!conversations.length) {
+      return [];
+    }
 
-      return {
-        id: conv.id,
-        otherUser: {
-          id: otherUser.id,
-          name: otherUser.name,
-          profileImage: otherUser.profileImage,
-          isOnline: otherUser.isOnline,
-          lastSeen: otherUser.lastSeen,
-        },
-        lastMessageText: conv.lastMessageText,
-        lastMessageAt: conv.lastMessageAt,
-        unreadCount,
-      };
+    const participantIds = Array.from(
+      new Set(
+        conversations.flatMap((conversation) => [
+          conversation.user1.id,
+          conversation.user2.id,
+        ]),
+      ),
+    );
+
+    const participants = await this.userRepo.find({
+      where: { id: In(participantIds) },
+      relations: ["auth"],
     });
+
+    const roleByUserId = new Map<number, USER_ROLE>();
+    participants.forEach((participant) => {
+      if (participant.auth?.role) {
+        roleByUserId.set(participant.id, participant.auth.role);
+      }
+    });
+
+    return conversations
+      .filter((conversation) => {
+        const otherUser =
+          conversation.user1.id === userId ? conversation.user2 : conversation.user1;
+
+        if (requestUser.auth.role !== USER_ROLE.USER) {
+          return true;
+        }
+
+        return roleByUserId.get(otherUser.id) === USER_ROLE.ADMIN;
+      })
+      .map((conv) => {
+        const otherUser = conv.user1.id === userId ? conv.user2 : conv.user1;
+        const unreadCount = conv.user1.id === userId ? conv.user1UnreadCount : conv.user2UnreadCount;
+
+        return {
+          id: conv.id,
+          otherUser: {
+            id: otherUser.id,
+            name: otherUser.name,
+            profileImage: otherUser.profileImage,
+            isOnline: otherUser.isOnline,
+            lastSeen: otherUser.lastSeen,
+          },
+          lastMessageText: conv.lastMessageText,
+          lastMessageAt: conv.lastMessageAt,
+          unreadCount,
+        };
+      });
+  }
+
+  async startVehicleInterestConversation(
+    interestedUserId: number,
+    vehicleId: number,
+    customMessage?: string,
+  ) {
+    const interestedUser = await this.getUserWithAuth(interestedUserId);
+    if (!interestedUser?.auth) {
+      throw new Error("User not found");
+    }
+
+    const primaryAdmin = await this.getPrimaryAdminUser();
+    if (!primaryAdmin?.auth) {
+      throw new Error("No admin account available");
+    }
+
+    const vehicle = await this.vehicleRepo.findOne({
+      where: { id: vehicleId, isBlocked: false },
+      relations: ["uploader"],
+    });
+
+    if (!vehicle) {
+      throw new Error("Vehicle not found");
+    }
+
+    const conversation = await this.getOrCreateConversation(interestedUserId, primaryAdmin.id);
+
+    const interestMessage =
+      customMessage?.trim() ||
+      `Hi, I am interested in vehicle #${vehicle.id}: ${vehicle.name} (${vehicle.make} ${vehicle.model}, ${vehicle.year}). Please help me connect with the seller.`;
+
+    await this.sendMessage(interestedUserId, primaryAdmin.id, interestMessage);
+
+    await notificationService.createForAdmins({
+      type: NOTIFICATION_TYPE.SYSTEM,
+      title: "New Vehicle Interest",
+      message: `${interestedUser.name || "A user"} is interested in ${vehicle.name}.`,
+      data: {
+        route: "/admin/messages",
+        vehicleId: vehicle.id,
+        interestedUserId: interestedUser.id,
+        sellerId: vehicle.uploader?.id || null,
+      },
+    });
+
+    return {
+      conversationId: conversation.id,
+      admin: {
+        id: primaryAdmin.id,
+        name: primaryAdmin.name || "Admin Support",
+        profileImage: primaryAdmin.profileImage,
+        isOnline: primaryAdmin.isOnline,
+        lastSeen: primaryAdmin.lastSeen,
+      },
+    };
   }
 
   // Send a message
   async sendMessage(senderId: number, receiverId: number, content: string) {
     const conversation = await this.getOrCreateConversation(senderId, receiverId);
 
-    const sender = await this.userRepo.findOne({ where: { id: senderId } });
-    const receiver = await this.userRepo.findOne({ where: { id: receiverId } });
+    const sender = await this.getUserWithAuth(senderId);
+    const receiver = await this.getUserWithAuth(receiverId);
 
-    if (!sender || !receiver) {
+    if (!sender || !receiver || !sender.auth || !receiver.auth) {
       throw new Error("User not found");
     }
+
+    this.validateChatPermissionBetweenUsers(sender.auth.role, receiver.auth.role);
 
     const message = this.messageRepo.create({
       conversation,

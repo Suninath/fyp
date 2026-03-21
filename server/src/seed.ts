@@ -85,36 +85,6 @@ async function seedDatabase() {
     }
 
     console.log("Users seeded");
-
-    /* ===================== STORES ===================== */
-    const stores = [
-      {
-        email: "premium.autos@store.com",
-        name: "Premium Auto Sales",
-        phoneNumber: "4449876543",
-        panNumber: "ABCDE1234F",
-        companyRegistrationDoc: "REG123456789",
-        paymentStatus: true,
-      },
-      {
-        email: "city.motors@store.com",
-        name: "City Motors",
-        phoneNumber: "6665554444",
-        panNumber: "FGHIJ5678K",
-        companyRegistrationDoc: "REG987654321",
-        paymentStatus: true,
-      },
-      {
-        email: "budget.cars@store.com",
-        name: "Budget Cars Inc",
-        phoneNumber: "7778889999",
-        panNumber: "LMNOP9012Q",
-        companyRegistrationDoc: "REG456789123",
-        paymentStatus: false,
-      },
-    ];
-
-    console.log("Stores seeded");
     console.log("✅ Database seeding completed");
   } catch (error) {
     console.error("❌ Seeding error:", error);

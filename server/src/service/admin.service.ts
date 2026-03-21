@@ -1,4 +1,4 @@
-import { Repository } from "typeorm";
+import { In, MoreThanOrEqual } from "typeorm";
 import AppDataSource from "../config/db.config";
 import { UserEntity } from "../entities/user.entity";
 import { AuthEntity } from "../entities/auth.entity";
@@ -6,9 +6,11 @@ import { VehicleEntity } from "../entities/vehicle.entity";
 import { DocumentEntity, VERIFICATION_STATUS } from "../entities/document.entity";
 import { BookingEntity, BOOKING_STATUS } from "../entities/booking.entity";
 import { PaymentEntity, PAYMENT_STATUS } from "../entities/payment.entity";
+import { BuySellEntity } from "../entities/buy_sell.entity";
+import { VehicleViewEntity } from "../entities/vehicle_view.entity";
 import { USER_ROLE } from "../constant/enums";
 import { notificationService } from "./notification.service";
-import { NOTIFICATION_TYPE } from "../entities/notification.entity";
+import { NOTIFICATION_TYPE, NotificationEntity } from "../entities/notification.entity";
 
 const userRepository = AppDataSource.getRepository(UserEntity);
 const authRepository = AppDataSource.getRepository(AuthEntity);
@@ -16,6 +18,268 @@ const vehicleRepository = AppDataSource.getRepository(VehicleEntity);
 const documentRepository = AppDataSource.getRepository(DocumentEntity);
 const bookingRepository = AppDataSource.getRepository(BookingEntity);
 const paymentRepository = AppDataSource.getRepository(PaymentEntity);
+const buySellRepository = AppDataSource.getRepository(BuySellEntity);
+const vehicleViewRepository = AppDataSource.getRepository(VehicleViewEntity);
+const notificationRepository = AppDataSource.getRepository(NotificationEntity);
+
+const getVehicleInterestInsights = async (
+  limit = 10,
+  insightsDays?: number,
+) => {
+  const hasDateFilter = Number.isInteger(insightsDays) && (insightsDays as number) > 0;
+  const sinceDate = hasDateFilter
+    ? new Date(Date.now() - (insightsDays as number) * 24 * 60 * 60 * 1000)
+    : null;
+
+  const vehicleViewsWhere: any = {};
+  if (sinceDate) {
+    vehicleViewsWhere.lastViewedAt = MoreThanOrEqual(sinceDate);
+  }
+
+  const vehicleViews = await vehicleViewRepository.find({
+    where: vehicleViewsWhere,
+    relations: ["vehicle", "viewer", "viewer.auth"],
+  });
+
+  const interestPairs = await notificationRepository
+    .createQueryBuilder("notification")
+    .select("(notification.data->>'vehicleId')::int", "vehicleId")
+    .addSelect("(notification.data->>'interestedUserId')::int", "interestedUserId")
+    .where("notification.type = :type", { type: NOTIFICATION_TYPE.SYSTEM })
+    .andWhere("notification.title = :title", { title: "New Vehicle Interest" })
+    .andWhere("notification.data ? 'vehicleId'")
+    .andWhere("notification.data ? 'interestedUserId'")
+    .andWhere(sinceDate ? "notification.createdAt >= :sinceDate" : "1=1", {
+      sinceDate,
+    })
+    .distinct(true)
+    .getRawMany<{ vehicleId: string; interestedUserId: string }>();
+
+  const interestedUserIdsByVehicle = new Map<number, Set<number>>();
+
+  interestPairs.forEach((pair) => {
+    const vehicleId = Number(pair.vehicleId);
+    const interestedUserId = Number(pair.interestedUserId);
+
+    if (!Number.isInteger(vehicleId) || vehicleId <= 0) return;
+    if (!Number.isInteger(interestedUserId) || interestedUserId <= 0) return;
+
+    if (!interestedUserIdsByVehicle.has(vehicleId)) {
+      interestedUserIdsByVehicle.set(vehicleId, new Set<number>());
+    }
+
+    interestedUserIdsByVehicle.get(vehicleId)?.add(interestedUserId);
+  });
+
+  const viewersByVehicle = new Map<
+    number,
+    Map<number, { id: number; name: string; email: string | null; viewCount: number }>
+  >();
+
+  vehicleViews.forEach((vehicleView) => {
+    const vehicleId = vehicleView.vehicle?.id || vehicleView.vehicleId;
+    const viewerId = vehicleView.viewer?.id || vehicleView.viewerId;
+    const viewer = vehicleView.viewer;
+
+    if (!vehicleId || !viewerId || !viewer) return;
+
+    if (!viewersByVehicle.has(vehicleId)) {
+      viewersByVehicle.set(vehicleId, new Map());
+    }
+
+    viewersByVehicle.get(vehicleId)?.set(viewerId, {
+      id: viewer.id,
+      name: viewer.name,
+      email: viewer.auth?.email || null,
+      viewCount: Number(vehicleView.viewCount || 0),
+    });
+  });
+
+  const vehicleIds = Array.from(
+    new Set<number>([
+      ...Array.from(interestedUserIdsByVehicle.keys()),
+      ...Array.from(viewersByVehicle.keys()),
+    ]),
+  );
+
+  if (!vehicleIds.length) {
+    return {
+      totalVehicleViews: 0,
+      vehiclesWithViews: 0,
+      totalVehicleInterests: 0,
+      vehiclesWithInterest: 0,
+      vehicleInterestInsights: [],
+    };
+  }
+
+  const vehicles = await vehicleRepository.find({
+    where: { id: In(vehicleIds) },
+    select: ["id", "name", "make", "model", "year"],
+  });
+
+  const interestedUserIds = Array.from(
+    new Set(
+      Array.from(interestedUserIdsByVehicle.values()).flatMap((userSet) =>
+        Array.from(userSet),
+      ),
+    ),
+  );
+
+  const interestedUsers = interestedUserIds.length
+    ? await userRepository.find({
+        where: { id: In(interestedUserIds) },
+        relations: ["auth"],
+      })
+    : [];
+
+  const interestedUserById = new Map(
+    interestedUsers.map((user) => [
+      user.id,
+      {
+        id: user.id,
+        name: user.name,
+        email: user.auth?.email || null,
+      },
+    ]),
+  );
+
+  const completedBookingsWhere: any = {
+    status: BOOKING_STATUS.COMPLETED,
+    vehicle: { id: In(vehicleIds) },
+  };
+  if (sinceDate) {
+    completedBookingsWhere.createdAt = MoreThanOrEqual(sinceDate);
+  }
+
+  const completedBookings = await bookingRepository.find({
+    where: completedBookingsWhere,
+    relations: ["vehicle", "user", "user.auth"],
+  });
+
+  const buySellWhere: any = {
+    vehicle: { id: In(vehicleIds) },
+  };
+  if (sinceDate) {
+    buySellWhere.createdAt = MoreThanOrEqual(sinceDate);
+  }
+
+  const buySellTransactions = await buySellRepository.find({
+    where: buySellWhere,
+    relations: ["vehicle", "buyer", "buyer.auth"],
+  });
+
+  const buyersByVehicle = new Map<
+    number,
+    Map<number, { id: number; name: string; email: string | null }>
+  >();
+
+  completedBookings.forEach((booking) => {
+    const vehicleId = booking.vehicle?.id;
+    const buyerId = booking.user?.id;
+
+    if (!vehicleId || !buyerId) return;
+
+    if (!buyersByVehicle.has(vehicleId)) {
+      buyersByVehicle.set(vehicleId, new Map());
+    }
+
+    buyersByVehicle.get(vehicleId)?.set(buyerId, {
+      id: booking.user.id,
+      name: booking.user.name,
+      email: booking.user.auth?.email || null,
+    });
+  });
+
+  buySellTransactions.forEach((transaction) => {
+    const vehicleId = transaction.vehicle?.id || transaction.vehicleId;
+    const buyerId = transaction.buyer?.id || transaction.buyerId;
+
+    if (!vehicleId || !buyerId) return;
+
+    if (!buyersByVehicle.has(vehicleId)) {
+      buyersByVehicle.set(vehicleId, new Map());
+    }
+
+    buyersByVehicle.get(vehicleId)?.set(buyerId, {
+      id: transaction.buyer.id,
+      name: transaction.buyer.name,
+      email: transaction.buyer.auth?.email || null,
+    });
+  });
+
+  const vehicleById = new Map(vehicles.map((vehicle) => [vehicle.id, vehicle]));
+
+  const vehicleInterestInsights = vehicleIds
+    .map((vehicleId) => {
+      const vehicle = vehicleById.get(vehicleId);
+      if (!vehicle) return null;
+
+      const interestedIds = Array.from(
+        interestedUserIdsByVehicle.get(vehicleId) || [],
+      );
+
+      const interestedUsersList = interestedIds
+        .map((id) => interestedUserById.get(id))
+        .filter(Boolean);
+
+      const buyersList = Array.from(
+        buyersByVehicle.get(vehicleId)?.values() || [],
+      );
+
+      const viewersList = Array.from(
+        viewersByVehicle.get(vehicleId)?.values() || [],
+      );
+
+      const totalViews = viewersList.reduce(
+        (sum, viewer) => sum + Number(viewer.viewCount || 0),
+        0,
+      );
+
+      return {
+        vehicleId: vehicle.id,
+        vehicleName: vehicle.name,
+        make: vehicle.make,
+        model: vehicle.model,
+        year: vehicle.year,
+        totalViews,
+        viewedUsersCount: viewersList.length,
+        viewedUsers: viewersList,
+        interestedUsersCount: interestedIds.length,
+        interestedUsers: interestedUsersList,
+        buyersCount: buyersList.length,
+        buyers: buyersList,
+      };
+    })
+    .filter(Boolean)
+    .sort((a: any, b: any) => {
+      if (b.interestedUsersCount !== a.interestedUsersCount) {
+        return b.interestedUsersCount - a.interestedUsersCount;
+      }
+
+      return (b.totalViews || 0) - (a.totalViews || 0);
+    })
+    .slice(0, limit);
+
+  const totalVehicleInterests = Array.from(interestedUserIdsByVehicle.values()).reduce(
+    (sum, set) => sum + set.size,
+    0,
+  );
+
+  const totalVehicleViews = vehicleViews.reduce(
+    (sum, vehicleView) => sum + Number(vehicleView.viewCount || 0),
+    0,
+  );
+
+  const vehiclesWithViews = viewersByVehicle.size;
+
+  return {
+    totalVehicleViews,
+    vehiclesWithViews,
+    totalVehicleInterests,
+    vehiclesWithInterest: interestedUserIdsByVehicle.size,
+    vehicleInterestInsights,
+  };
+};
 
 const safeNotify = async (callback: () => Promise<unknown>) => {
   try {
@@ -172,8 +436,18 @@ const adminService = {
     }
   },
 
-  async getDashboardStats() {
+  async getDashboardStats({ insightsDays }: { insightsDays?: number } = {}) {
     try {
+      const normalizedInsightsDays =
+        Number.isInteger(insightsDays) && Number(insightsDays) > 0
+          ? Number(insightsDays)
+          : undefined;
+
+      const vehicleInterestStats = await getVehicleInterestInsights(
+        10,
+        normalizedInsightsDays,
+      );
+
       const totalUsers = await userRepository.count({
         where: {
           auth: {
@@ -206,23 +480,32 @@ const adminService = {
       });
 
       // Document stats
-      const pendingDocuments = await documentRepository.count({
-        where: {
-          verificationStatus: VERIFICATION_STATUS.PENDING
-        }
-      });
+      const pendingDocuments = await documentRepository
+        .createQueryBuilder("document")
+        .innerJoin("document.user", "user")
+        .innerJoin("user.auth", "auth")
+        .where("document.verificationStatus = :status", {
+          status: VERIFICATION_STATUS.PENDING,
+        })
+        .getCount();
 
-      const approvedDocuments = await documentRepository.count({
-        where: {
-          verificationStatus: VERIFICATION_STATUS.APPROVED
-        }
-      });
+      const approvedDocuments = await documentRepository
+        .createQueryBuilder("document")
+        .innerJoin("document.user", "user")
+        .innerJoin("user.auth", "auth")
+        .where("document.verificationStatus = :status", {
+          status: VERIFICATION_STATUS.APPROVED,
+        })
+        .getCount();
 
-      const rejectedDocuments = await documentRepository.count({
-        where: {
-          verificationStatus: VERIFICATION_STATUS.REJECTED
-        }
-      });
+      const rejectedDocuments = await documentRepository
+        .createQueryBuilder("document")
+        .innerJoin("document.user", "user")
+        .innerJoin("user.auth", "auth")
+        .where("document.verificationStatus = :status", {
+          status: VERIFICATION_STATUS.REJECTED,
+        })
+        .getCount();
 
       const totalVehicles = await vehicleRepository.count();
 
@@ -284,7 +567,12 @@ const adminService = {
           cancelledBookings,
           completedBookings,
           totalRevenue,
-          pendingPaymentAmount
+          pendingPaymentAmount,
+          totalVehicleViews: vehicleInterestStats.totalVehicleViews,
+          vehiclesWithViews: vehicleInterestStats.vehiclesWithViews,
+          totalVehicleInterests: vehicleInterestStats.totalVehicleInterests,
+          vehiclesWithInterest: vehicleInterestStats.vehiclesWithInterest,
+          vehicleInterestInsights: vehicleInterestStats.vehicleInterestInsights,
         }
       };
     } catch (error) {
@@ -435,8 +723,18 @@ const adminService = {
 
   async deleteVehicle(vehicleId: string) {
     try {
+      const parsedVehicleId = parseInt(vehicleId, 10);
+
+      if (!Number.isInteger(parsedVehicleId) || parsedVehicleId <= 0) {
+        return {
+          status: false,
+          code: 400,
+          message: "Invalid vehicle id"
+        };
+      }
+
       const vehicle = await vehicleRepository.findOne({
-        where: { id: parseInt(vehicleId) }
+        where: { id: parsedVehicleId }
       });
 
       if (!vehicle) {
@@ -444,6 +742,18 @@ const adminService = {
           status: false,
           code: 404,
           message: "Vehicle not found"
+        };
+      }
+
+      const bookingCount = await bookingRepository.count({
+        where: { vehicle: { id: parsedVehicleId } },
+      });
+
+      if (bookingCount > 0) {
+        return {
+          status: false,
+          code: 409,
+          message: "Cannot delete vehicle because it has related bookings. Cancel or remove those bookings first.",
         };
       }
 
@@ -523,8 +833,13 @@ const adminService = {
         };
       }
 
-      // Remove auth first (due to foreign key constraint)
-      await authRepository.remove(user.auth);
+      // Clean dependent records first in case DB constraints/migrations differ across environments.
+      await documentRepository.delete({ userId: user.id });
+
+      // Remove auth first when available (legacy/orphan rows might already miss auth).
+      if (user.auth) {
+        await authRepository.remove(user.auth);
+      }
       await userRepository.remove(user);
 
       return {

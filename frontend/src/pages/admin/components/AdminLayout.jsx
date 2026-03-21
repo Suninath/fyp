@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
 import {
@@ -12,17 +12,30 @@ import {
   Settings,
   ChevronRight,
   Calendar,
-  CreditCard
+  CreditCard,
+  MessageCircle,
+  PieChart
 } from "lucide-react";
 import { Button } from "../../../ui/ui/button";
 import { userLogout } from "../../../rtk/thunk/authThunk";
 import NotificationBell from "../../../components/common/NotificationBell";
+import { getConversations } from "../../../rtk/thunk/chatThunk";
+import { Badge } from "../../../ui/ui/badge";
 
 const AdminLayout = ({ children, activeTab }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const dispatch = useDispatch();
   const { role, name, email } = useSelector((state) => state.auth);
+  const { conversations = [] } = useSelector((state) => state.chat);
+
+  const usersWithUnreadMessages = conversations.filter((conv) => conv?.unreadCount > 0).length;
+
+  useEffect(() => {
+    if (role === "admin") {
+      dispatch(getConversations());
+    }
+  }, [dispatch, role, location.pathname]);
 
   const handleLogout = () => {
     dispatch(userLogout()).then(() => {
@@ -32,9 +45,11 @@ const AdminLayout = ({ children, activeTab }) => {
 
   const menuItems = [
     { id: "dashboard", label: "Dashboard", icon: BarChart3, path: "/admin/dashboard", description: "Overview & analytics" },
+    { id: "insights", label: "Insights", icon: PieChart, path: "/admin/insights", description: "User interest analytics" },
     { id: "users", label: "User Management", icon: Users, path: "/admin/users", description: "Manage all users" },
     { id: "verification", label: "Verification", icon: UserCheck, path: "/admin/verification", description: "Verify user accounts" },
     { id: "vehicles", label: "Vehicles", icon: Car, path: "/admin/vehicles", description: "Manage listings" },
+    { id: "messages", label: "Messages", icon: MessageCircle, path: "/admin/messages", description: "Support conversations" },
     { id: "bookings", label: "Bookings", icon: Calendar, path: "/admin/bookings", description: "Manage all bookings" },
     { id: "payments", label: "Payments", icon: CreditCard, path: "/admin/payments", description: "Transaction history" },
     { id: "documents", label: "Documents", icon: FileText, path: "/admin/documents", description: "Review documents" }
@@ -126,6 +141,18 @@ const AdminLayout = ({ children, activeTab }) => {
             </p>
           </div>
           <div className="flex items-center gap-4">
+            <button
+              onClick={() => navigate("/admin/messages")}
+              className="relative p-2 text-gray-500 hover:text-purple hover:bg-light-bg rounded-lg transition"
+              title="Admin Messages"
+            >
+              <MessageCircle size={20} />
+              {usersWithUnreadMessages > 0 && (
+                <Badge className="absolute -top-1 -right-1 bg-red text-white text-[10px] px-1.5 py-0 h-5 min-w-5 rounded-full flex items-center justify-center">
+                  {usersWithUnreadMessages > 9 ? "9+" : usersWithUnreadMessages}
+                </Badge>
+              )}
+            </button>
             <NotificationBell />
             <button className="p-2 text-gray-400 hover:text-purple hover:bg-light-bg rounded-lg transition">
               <Settings size={20} />

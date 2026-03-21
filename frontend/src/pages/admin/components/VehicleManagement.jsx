@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import {
   Search,
+  Plus,
   RefreshCw,
   ChevronLeft,
   ChevronRight,
@@ -24,6 +25,9 @@ import {
 import { Button } from "../../../ui/ui/button";
 import { Badge } from "../../../ui/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "../../../ui/ui/card";
+import { Input } from "../../../ui/ui/input";
+import { Label } from "../../../ui/ui/label";
+import { Textarea } from "../../../ui/ui/textarea";
 import {
   Table,
   TableBody,
@@ -56,6 +60,7 @@ import {
   unblockVehicle,
   deleteVehicle,
 } from "../../../rtk/thunk/adminThunk";
+import { createVehicle } from "../../../rtk/thunk/vehicleThunk";
 
 const ALL = "all";
 
@@ -74,6 +79,24 @@ const VehicleManagement = () => {
   const [deleteVehicleName, setDeleteVehicleName] = useState("");
   const [selectedVehicle, setSelectedVehicle] = useState(null);
   const [isVehicleDetailsOpen, setIsVehicleDetailsOpen] = useState(false);
+  const [isCreateVehicleOpen, setIsCreateVehicleOpen] = useState(false);
+  const [createLoading, setCreateLoading] = useState(false);
+  const [createForm, setCreateForm] = useState({
+    name: "",
+    make: "",
+    model: "",
+    year: "",
+    price: "",
+    category: "Buy/Sell",
+    mileage: "",
+    fuelType: "",
+    transmission: "",
+    color: "",
+    location: "",
+    condition: "",
+    description: "",
+    images: [],
+  });
 
   /* ---------------- FETCH VEHICLES ---------------- */
   useEffect(() => {
@@ -127,6 +150,72 @@ const VehicleManagement = () => {
         color: color === ALL ? undefined : color,
       }),
     );
+  };
+
+  const resetCreateForm = () => {
+    setCreateForm({
+      name: "",
+      make: "",
+      model: "",
+      year: "",
+      price: "",
+      category: "Buy/Sell",
+      mileage: "",
+      fuelType: "",
+      transmission: "",
+      color: "",
+      location: "",
+      condition: "",
+      description: "",
+      images: [],
+    });
+  };
+
+  const handleCreateInputChange = (field, value) => {
+    setCreateForm((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
+  const handleCreateImageChange = (e) => {
+    const files = Array.from(e.target.files || []);
+    setCreateForm((prev) => ({
+      ...prev,
+      images: files,
+    }));
+  };
+
+  const handleAdminVehicleCreate = async (e) => {
+    e.preventDefault();
+
+    if (createLoading) {
+      return;
+    }
+
+    setCreateLoading(true);
+    try {
+      const formData = new FormData();
+      Object.keys(createForm).forEach((key) => {
+        if (key === "images") {
+          createForm.images.forEach((imageFile) => {
+            formData.append("images", imageFile);
+          });
+        } else if (createForm[key]) {
+          formData.append(key, createForm[key]);
+        }
+      });
+
+      await dispatch(createVehicle(formData)).unwrap();
+      setIsCreateVehicleOpen(false);
+      resetCreateForm();
+      setPage(1);
+      refreshData();
+    } catch (error) {
+      console.error("Failed to create vehicle from admin panel:", error);
+    } finally {
+      setCreateLoading(false);
+    }
   };
 
   const clearFilters = () => {
@@ -211,6 +300,11 @@ const VehicleManagement = () => {
 
             <Button variant="outline" onClick={refreshData}>
               <RefreshCw size={16} />
+            </Button>
+
+            <Button onClick={() => setIsCreateVehicleOpen(true)}>
+              <Plus size={16} className="mr-1" />
+              Upload Vehicle
             </Button>
           </div>
         </CardHeader>
@@ -357,6 +451,256 @@ const VehicleManagement = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* CREATE VEHICLE DIALOG */}
+      <Dialog
+        open={isCreateVehicleOpen}
+        onOpenChange={(open) => {
+          setIsCreateVehicleOpen(open);
+          if (!open) {
+            resetCreateForm();
+          }
+        }}
+      >
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-0 border-0 shadow-2xl bg-white rounded-lg">
+          <div className="bg-gradient-to-r from-purple to-blue text-white p-4 sm:p-6">
+            <DialogHeader className="p-0 space-y-2">
+              <DialogTitle className="text-white text-xl sm:text-2xl font-bold flex items-center gap-2">
+                <Plus size={20} />
+                Upload Vehicle (Admin)
+              </DialogTitle>
+              <DialogDescription className="text-gray-100 mt-1 text-sm sm:text-base">
+                Fill in vehicle details and choose listing type: Buy/Sell or Renting.
+              </DialogDescription>
+            </DialogHeader>
+          </div>
+
+          <div className="p-4 sm:p-6 bg-white">
+            <form onSubmit={handleAdminVehicleCreate} className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-3">
+                  <Label htmlFor="admin-name" className="font-semibold text-gray-900">Vehicle Name *</Label>
+                  <Input
+                    id="admin-name"
+                    value={createForm.name}
+                    onChange={(e) => handleCreateInputChange("name", e.target.value)}
+                    placeholder="e.g., Toyota Camry 2020"
+                    className="border-2 border-gray-300 focus:border-purple focus:ring-purple"
+                    required
+                  />
+                </div>
+
+                <div className="space-y-3">
+                  <Label htmlFor="admin-make" className="font-semibold text-gray-900">Make *</Label>
+                  <Input
+                    id="admin-make"
+                    value={createForm.make}
+                    onChange={(e) => handleCreateInputChange("make", e.target.value)}
+                    placeholder="e.g., Toyota"
+                    className="border-2 border-gray-300 focus:border-purple focus:ring-purple"
+                    required
+                  />
+                </div>
+
+                <div className="space-y-3">
+                  <Label htmlFor="admin-model" className="font-semibold text-gray-900">Model *</Label>
+                  <Input
+                    id="admin-model"
+                    value={createForm.model}
+                    onChange={(e) => handleCreateInputChange("model", e.target.value)}
+                    placeholder="e.g., Camry"
+                    className="border-2 border-gray-300 focus:border-purple focus:ring-purple"
+                    required
+                  />
+                </div>
+
+                <div className="space-y-3">
+                  <Label htmlFor="admin-year" className="font-semibold text-gray-900">Year *</Label>
+                  <Input
+                    id="admin-year"
+                    type="number"
+                    value={createForm.year}
+                    onChange={(e) => handleCreateInputChange("year", e.target.value)}
+                    className="border-2 border-gray-300 focus:border-purple focus:ring-purple"
+                    required
+                  />
+                </div>
+
+                <div className="space-y-3">
+                  <Label htmlFor="admin-price" className="font-semibold text-gray-900">Price (Rs.) *</Label>
+                  <Input
+                    id="admin-price"
+                    type="number"
+                    value={createForm.price}
+                    onChange={(e) => handleCreateInputChange("price", e.target.value)}
+                    className="border-2 border-gray-300 focus:border-purple focus:ring-purple"
+                    required
+                  />
+                </div>
+
+                <div className="space-y-3">
+                  <Label htmlFor="admin-category" className="font-semibold text-gray-900">Listing Type *</Label>
+                  <Select
+                    value={createForm.category}
+                    onValueChange={(value) => handleCreateInputChange("category", value)}
+                  >
+                    <SelectTrigger id="admin-category" className="border-2 border-gray-300 focus:border-purple focus:ring-purple bg-white">
+                      <SelectValue placeholder="Select listing type" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white">
+                      <SelectItem value="Buy/Sell">Buy/Sell</SelectItem>
+                      <SelectItem value="Renting">Renting</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-3">
+                  <Label htmlFor="admin-mileage" className="font-semibold text-gray-900">Mileage (km)</Label>
+                  <Input
+                    id="admin-mileage"
+                    type="number"
+                    value={createForm.mileage}
+                    onChange={(e) => handleCreateInputChange("mileage", e.target.value)}
+                    className="border-2 border-gray-300 focus:border-blue focus:ring-blue"
+                  />
+                </div>
+
+                <div className="space-y-3">
+                  <Label htmlFor="admin-fuel" className="font-semibold text-gray-900">Fuel Type</Label>
+                  <Select
+                    value={createForm.fuelType}
+                    onValueChange={(value) => handleCreateInputChange("fuelType", value)}
+                  >
+                    <SelectTrigger id="admin-fuel" className="border-2 border-gray-300 focus:border-purple focus:ring-purple bg-white">
+                      <SelectValue placeholder="Select fuel type" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white">
+                      <SelectItem value="Petrol">Petrol</SelectItem>
+                      <SelectItem value="Diesel">Diesel</SelectItem>
+                      <SelectItem value="Electric">Electric</SelectItem>
+                      <SelectItem value="Hybrid">Hybrid</SelectItem>
+                      <SelectItem value="CNG">CNG</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-3">
+                  <Label htmlFor="admin-transmission" className="font-semibold text-gray-900">Transmission</Label>
+                  <Select
+                    value={createForm.transmission}
+                    onValueChange={(value) => handleCreateInputChange("transmission", value)}
+                  >
+                    <SelectTrigger id="admin-transmission" className="border-2 border-gray-300 focus:border-purple focus:ring-purple bg-white">
+                      <SelectValue placeholder="Select transmission" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white">
+                      <SelectItem value="Manual">Manual</SelectItem>
+                      <SelectItem value="Automatic">Automatic</SelectItem>
+                      <SelectItem value="CVT">CVT</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-3">
+                  <Label htmlFor="admin-color" className="font-semibold text-gray-900">Color</Label>
+                  <Input
+                    id="admin-color"
+                    value={createForm.color}
+                    onChange={(e) => handleCreateInputChange("color", e.target.value)}
+                    placeholder="e.g., White"
+                    className="border-2 border-gray-300 focus:border-blue focus:ring-blue"
+                  />
+                </div>
+
+                <div className="space-y-3">
+                  <Label htmlFor="admin-condition" className="font-semibold text-gray-900">Condition</Label>
+                  <Select
+                    value={createForm.condition}
+                    onValueChange={(value) => handleCreateInputChange("condition", value)}
+                  >
+                    <SelectTrigger id="admin-condition" className="border-2 border-gray-300 focus:border-purple focus:ring-purple bg-white">
+                      <SelectValue placeholder="Select condition" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white">
+                      <SelectItem value="Excellent">Excellent</SelectItem>
+                      <SelectItem value="Good">Good</SelectItem>
+                      <SelectItem value="Fair">Fair</SelectItem>
+                      <SelectItem value="Poor">Poor</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <Label htmlFor="admin-location" className="font-semibold text-gray-900">Location</Label>
+                <Input
+                  id="admin-location"
+                  value={createForm.location}
+                  onChange={(e) => handleCreateInputChange("location", e.target.value)}
+                  placeholder="e.g., Kathmandu"
+                  className="border-2 border-gray-300 focus:border-blue focus:ring-blue"
+                />
+              </div>
+
+              <div className="space-y-3">
+                <Label htmlFor="admin-description" className="font-semibold text-gray-900">Description</Label>
+                <Textarea
+                  id="admin-description"
+                  value={createForm.description}
+                  onChange={(e) => handleCreateInputChange("description", e.target.value)}
+                  rows={4}
+                  placeholder="Describe your vehicle..."
+                  className="border-2 border-gray-300 focus:border-blue focus:ring-blue resize-none"
+                />
+              </div>
+
+              <div className="space-y-3">
+                <Label htmlFor="admin-images" className="font-semibold text-gray-900">Vehicle Photos</Label>
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 hover:border-purple transition-colors cursor-pointer">
+                  <input
+                    id="admin-images"
+                    type="file"
+                    multiple
+                    accept="image/*"
+                    onChange={handleCreateImageChange}
+                    className="hidden"
+                  />
+                  <label htmlFor="admin-images" className="cursor-pointer block text-center">
+                    <div className="text-gray-600 font-medium mb-2">Click to upload photos</div>
+                    <div className="text-sm text-gray-500">PNG, JPG, GIF up to 5MB each (max 10 images)</div>
+                    {Array.isArray(createForm.images) && createForm.images.length > 0 && (
+                      <div className="mt-4 text-sm text-green font-semibold">
+                        {createForm.images.length} image(s) selected
+                      </div>
+                    )}
+                  </label>
+                </div>
+              </div>
+
+              <div className="flex justify-end space-x-4 pt-4 border-t border-gray-200">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setIsCreateVehicleOpen(false);
+                    resetCreateForm();
+                  }}
+                  className="border-2 border-gray-300 text-gray-700 hover:bg-gray-100 transition-all"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={createLoading}
+                  className="bg-gradient-to-r from-purple to-blue hover:from-purple hover:to-blue text-white shadow-md hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {createLoading ? "Uploading..." : "Upload Vehicle"}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* VEHICLE DETAILS DIALOG */}
       <Dialog open={isVehicleDetailsOpen} onOpenChange={setIsVehicleDetailsOpen}>

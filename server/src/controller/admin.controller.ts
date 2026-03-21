@@ -36,7 +36,13 @@ const adminController = {
   },
 
   async getDashboardStats(req: Request, res: Response) {
-    const result = await adminService.getDashboardStats();
+    const insightsDaysParam = Number(req.query?.insightsDays);
+    const insightsDays =
+      Number.isInteger(insightsDaysParam) && insightsDaysParam > 0
+        ? insightsDaysParam
+        : undefined;
+
+    const result = await adminService.getDashboardStats({ insightsDays });
     sendResponse(res, {
       status: result.status,
       message: result.message || "Dashboard stats retrieved successfully",

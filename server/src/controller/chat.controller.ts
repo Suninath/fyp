@@ -166,4 +166,48 @@ export class ChatController {
       });
     }
   }
+
+  // Start interest conversation for a vehicle (user -> admin)
+  async startInterestConversation(req: Request, res: Response) {
+    try {
+      const userId = typeof req.user.id === "string" ? parseInt(req.user.id, 10) : req.user.id;
+      const { vehicleId, message } = req.body;
+
+      if (!vehicleId) {
+        return sendResponse(res, {
+          status: false,
+          httpCode: 400,
+          message: "Vehicle ID is required",
+        });
+      }
+
+      const vehicleIdNum = parseInt(vehicleId, 10);
+      if (!Number.isInteger(vehicleIdNum) || vehicleIdNum <= 0) {
+        return sendResponse(res, {
+          status: false,
+          httpCode: 400,
+          message: "Invalid vehicle ID",
+        });
+      }
+
+      const result = await chatService.startVehicleInterestConversation(
+        userId,
+        vehicleIdNum,
+        message,
+      );
+
+      sendResponse(res, {
+        status: true,
+        httpCode: 200,
+        message: "Interest sent to admin successfully",
+        data: result,
+      });
+    } catch (error: any) {
+      sendResponse(res, {
+        status: false,
+        httpCode: 500,
+        message: error.message || "Failed to start interest conversation",
+      });
+    }
+  }
 }

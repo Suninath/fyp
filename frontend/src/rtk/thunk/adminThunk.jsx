@@ -4,9 +4,19 @@ import { main_uri } from "../../service";
 
 export const getDashboardStats = createAsyncThunk(
   "admin/getDashboardStats",
-  async (_, { rejectWithValue }) => {
+  async (params = {}, { rejectWithValue }) => {
     try {
-      const resp = await main_uri.get(`/api/v1/admin/dashboard/stats`);
+      const queryParams = new URLSearchParams();
+      if (params.insightsDays !== undefined && params.insightsDays !== null) {
+        queryParams.append("insightsDays", String(params.insightsDays));
+      }
+      queryParams.append("_ts", String(Date.now()));
+
+      const url = queryParams.toString()
+        ? `/api/v1/admin/dashboard/stats?${queryParams.toString()}`
+        : `/api/v1/admin/dashboard/stats`;
+
+      const resp = await main_uri.get(url);
       return resp.data?.data;
     } catch (error) {
       ErrorToast({ message: error.response?.data?.message });

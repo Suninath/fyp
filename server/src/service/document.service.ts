@@ -292,18 +292,21 @@ export const documentService = {
   async getAllDocuments(page: number = 1, limit: number = 10, status?: string) {
     try {
       const skip = (page - 1) * limit;
-      const where: any = {};
-      if (status && status !== 'all') {
-        where.verificationStatus = status as VERIFICATION_STATUS;
+      const queryBuilder = documentRepository
+        .createQueryBuilder("document")
+        .innerJoinAndSelect("document.user", "user")
+        .innerJoinAndSelect("user.auth", "auth")
+        .orderBy("document.createdAt", "DESC")
+        .skip(skip)
+        .take(limit);
+
+      if (status && status !== "all") {
+        queryBuilder.andWhere("document.verificationStatus = :status", {
+          status,
+        });
       }
 
-      const [documents, total] = await documentRepository.findAndCount({
-        where,
-        relations: ["user", "user.auth"],
-        order: { createdAt: "DESC" },
-        take: limit,
-        skip,
-      });
+      const [documents, total] = await queryBuilder.getManyAndCount();
 
       return {
         status: true,
@@ -332,13 +335,17 @@ export const documentService = {
     try {
       const skip = (page - 1) * limit;
 
-      const [documents, total] = await documentRepository.findAndCount({
-        where: { verificationStatus: VERIFICATION_STATUS.PENDING },
-        relations: ["user", "user.auth"],
-        order: { createdAt: "ASC" },
-        take: limit,
-        skip,
-      });
+      const [documents, total] = await documentRepository
+        .createQueryBuilder("document")
+        .innerJoinAndSelect("document.user", "user")
+        .innerJoinAndSelect("user.auth", "auth")
+        .where("document.verificationStatus = :status", {
+          status: VERIFICATION_STATUS.PENDING,
+        })
+        .orderBy("document.createdAt", "ASC")
+        .skip(skip)
+        .take(limit)
+        .getManyAndCount();
 
       return {
         status: true,

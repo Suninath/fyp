@@ -1,6 +1,19 @@
 import { NextFunction, Request, Response } from "express";
 import { verifyToken, genAccessToken } from "../utils/tokenGen";
 
+const extractAccessToken = (req: Request) => {
+  let accessToken = req.cookies?.access_token;
+
+  if (!accessToken) {
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      accessToken = authHeader.substring(7);
+    }
+  }
+
+  return accessToken;
+};
+
 export const authenticationMiddeware = async (
   req: Request,
   res: Response,
@@ -88,4 +101,25 @@ export const authorizationMiddleware = (roles: string[]) => {
     }
     next();
   };
+};
+
+export const optionalAuthenticationMiddeware = (
+  req: Request,
+  _res: Response,
+  next: NextFunction,
+) => {
+  const accessToken = extractAccessToken(req);
+
+  if (!accessToken) {
+    return next();
+  }
+
+  try {
+    const decoded = verifyToken(accessToken, process.env.ACCESS_TOKEN_SECRET!);
+    req.user = decoded;
+  } catch {
+    // Ignore invalid token for optional auth routes.
+  }
+
+  return next();
 };

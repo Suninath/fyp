@@ -5,6 +5,7 @@ import {
   sendMessage,
   markMessagesAsRead,
   startConversation,
+  startInterestConversation,
   updateOnlineStatus,
 } from "../thunk/chatThunk";
 
@@ -160,6 +161,11 @@ const chatSlice = createSlice({
 
       // Start Conversation
       .addCase(startConversation.fulfilled, (state, action) => {
+        state.currentConversation = action.payload;
+      })
+
+      // Start Interest Conversation
+      .addCase(startInterestConversation.fulfilled, (state, action) => {
         state.currentConversation = action.payload;
       })
 

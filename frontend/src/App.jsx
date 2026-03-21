@@ -23,6 +23,8 @@ import UserVerification from "./pages/admin/components/UserVerification";
 import BookingManagement from "./pages/admin/components/BookingManagement";
 import PaymentManagement from "./pages/admin/components/PaymentManagement";
 import DocumentManagement from "./pages/admin/components/DocumentManagement";
+import AdminMessagesPage from "./pages/admin/components/AdminMessagesPage";
+import AdminInsightsPage from "./pages/admin/components/AdminInsightsPage";
 import Loading from "./components/common/loading";
 import Home from "./pages/public/Home";
 import About from "./pages/public/About";
@@ -203,6 +205,22 @@ function AppContent() {
           element={
             <ProtectedRoute allowedRoles={["admin"]}>
               <DocumentManagement />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/messages"
+          element={
+            <ProtectedRoute allowedRoles={["admin"]}>
+              <AdminMessagesPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/insights"
+          element={
+            <ProtectedRoute allowedRoles={["admin"]}>
+              <AdminInsightsPage />
             </ProtectedRoute>
           }
         />

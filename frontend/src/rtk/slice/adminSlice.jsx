@@ -37,6 +37,11 @@ const initialState = {
     pendingDocuments: 0,
     approvedDocuments: 0,
     rejectedDocuments: 0,
+    totalVehicleViews: 0,
+    vehiclesWithViews: 0,
+    totalVehicleInterests: 0,
+    vehiclesWithInterest: 0,
+    vehicleInterestInsights: [],
   },
   users: [],
   userPagination: {

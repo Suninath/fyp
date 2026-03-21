@@ -52,7 +52,14 @@ const ProtectedRoute = memo(({ children, allowedRoles = [] }) => {
     const path = location.pathname;
     const isAuthPage = AUTH_PAGES.includes(path);
     const isPublicPage = PUBLIC_PAGES.includes(path);
+    const isAdminPath = path.startsWith("/admin");
     const home = ROLE_HOME[role];
+
+    // Admin users must stay inside admin routes
+    if (authenticate && role === "admin" && !isAdminPath && !isAuthPage) {
+      navigate("/admin/dashboard", { replace: true });
+      return;
+    }
 
     // Handle public pages
     if (isPublicPage) {

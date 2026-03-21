@@ -81,6 +81,24 @@ export const startConversation = createAsyncThunk(
   }
 );
 
+// Start vehicle-interest conversation with admin
+export const startInterestConversation = createAsyncThunk(
+  "chat/startInterestConversation",
+  async ({ vehicleId, message }, { rejectWithValue }) => {
+    try {
+      const response = await axios.post("/api/v1/chat/conversations/interest", {
+        vehicleId,
+        message,
+      });
+      return response.data.data;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to contact admin"
+      );
+    }
+  }
+);
+
 // Update online status
 export const updateOnlineStatus = createAsyncThunk(
   "chat/updateOnlineStatus",
