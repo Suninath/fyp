@@ -111,15 +111,26 @@ const VehicleCatalog = () => {
               <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-1 md:mb-2">{pageTitle}</h1>
               <p className="text-sm md:text-base text-gray-600">Find the perfect vehicle for your needs</p>
             </div>
-            {comparedVehicles.length > 0 && (
-              <button
-                onClick={() => setIsComparisonDrawerOpen(true)}
-                className="flex items-center gap-2 px-3 md:px-4 py-2 bg-blue text-white rounded-lg hover:bg-blue/90 transition-colors animate-pulse text-sm md:text-base w-full sm:w-auto justify-center sm:justify-start"
-              >
-                <Scale className="w-4 h-4 md:w-5 md:h-5" />
-                <span>Compare ({comparedVehicles.length})</span>
-              </button>
-            )}
+            <div className="flex gap-2 flex-col sm:flex-row w-full sm:w-auto">
+              {user?.accountVerified && (
+                <Button
+                  onClick={() => navigate("/user/create-vehicle")}
+                  className="flex items-center gap-2 px-3 md:px-4 py-2 bg-secondary text-white rounded-lg hover:bg-emerald-700 transition-colors text-sm md:text-base w-full sm:w-auto justify-center"
+                >
+                  <Car className="w-4 h-4 md:w-5 md:h-5" />
+                  <span>Add Vehicle</span>
+                </Button>
+              )}
+              {comparedVehicles.length > 0 && (
+                <button
+                  onClick={() => setIsComparisonDrawerOpen(true)}
+                  className="flex items-center gap-2 px-3 md:px-4 py-2 bg-blue text-white rounded-lg hover:bg-blue/90 transition-colors animate-pulse text-sm md:text-base w-full sm:w-auto justify-center sm:justify-start"
+                >
+                  <Scale className="w-4 h-4 md:w-5 md:h-5" />
+                  <span>Compare ({comparedVehicles.length})</span>
+                </button>
+              )}
+            </div>
         </div>
 
         {/* Search Bar */}
@@ -248,8 +259,12 @@ const VehicleCatalog = () => {
                             disabled={comparedVehicles.length >= 4 && !isVehicleInComparison(vehicle.id)}
                         >
                             <Scale className="w-3 h-3 md:w-4 md:h-4 mr-1" />
-                            <span className="hidden sm:inline">{isVehicleInComparison(vehicle.id) ? "Remove" : "Compare"}</span>
-                            <span className="sm:hidden">{isVehicleInComparison(vehicle.id) ? "✕" : "⚖"}</span>
+                            <span className="hidden sm:inline">
+                              {isVehicleInComparison(vehicle.id) ? "Remove from Compare" : "Add to Compare"}
+                            </span>
+                            <span className="sm:hidden">
+                              {isVehicleInComparison(vehicle.id) ? "Remove" : "Add"}
+                            </span>
                         </Button>
                     </div>
                   </div>

@@ -182,23 +182,30 @@ export class ChatService {
 
     const conversation = await this.getOrCreateConversation(interestedUserId, primaryAdmin.id);
 
+    const existingMessageCount = await this.messageRepo.count({
+      where: { conversation: { id: conversation.id } },
+    });
+
     const interestMessage =
       customMessage?.trim() ||
       `Hi, I am interested in vehicle #${vehicle.id}: ${vehicle.name} (${vehicle.make} ${vehicle.model}, ${vehicle.year}). Please help me connect with the seller.`;
 
-    await this.sendMessage(interestedUserId, primaryAdmin.id, interestMessage);
+    // Send the auto interest message only once per user-admin conversation.
+    if (existingMessageCount === 0) {
+      await this.sendMessage(interestedUserId, primaryAdmin.id, interestMessage);
 
-    await notificationService.createForAdmins({
-      type: NOTIFICATION_TYPE.SYSTEM,
-      title: "New Vehicle Interest",
-      message: `${interestedUser.name || "A user"} is interested in ${vehicle.name}.`,
-      data: {
-        route: "/admin/messages",
-        vehicleId: vehicle.id,
-        interestedUserId: interestedUser.id,
-        sellerId: vehicle.uploader?.id || null,
-      },
-    });
+      await notificationService.createForAdmins({
+        type: NOTIFICATION_TYPE.SYSTEM,
+        title: "New Vehicle Interest",
+        message: `${interestedUser.name || "A user"} is interested in ${vehicle.name}.`,
+        data: {
+          route: "/admin/messages",
+          vehicleId: vehicle.id,
+          interestedUserId: interestedUser.id,
+          sellerId: vehicle.uploader?.id || null,
+        },
+      });
+    }
 
     return {
       conversationId: conversation.id,

@@ -6,7 +6,6 @@ import {
   Users,
   Car,
   LogOut,
-  Shield,
   FileText,
   UserCheck,
   Settings,
@@ -21,6 +20,7 @@ import { userLogout } from "../../../rtk/thunk/authThunk";
 import NotificationBell from "../../../components/common/NotificationBell";
 import { getConversations } from "../../../rtk/thunk/chatThunk";
 import { Badge } from "../../../ui/ui/badge";
+import BrandMark from "../../../components/common/BrandMark";
 
 const AdminLayout = ({ children, activeTab }) => {
   const navigate = useNavigate();
@@ -64,12 +64,10 @@ const AdminLayout = ({ children, activeTab }) => {
         {/* Logo Section */}
         <div className="px-6 py-6 border-b border-gray-700/50">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-purple flex items-center justify-center shadow-lg">
-              <Shield size={22} className="text-white" />
-            </div>
+            <BrandMark size={40} className="rounded-xl shadow-lg" />
             <div>
               <h2 className="text-lg font-bold text-white tracking-wide">
-                AutoGear
+                Second Auto Gear
               </h2>
               <p className="text-xs text-gray-400">Admin Console</p>
             </div>
@@ -114,7 +112,7 @@ const AdminLayout = ({ children, activeTab }) => {
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-white truncate">{name || 'Administrator'}</p>
-              <p className="text-xs text-gray-400 truncate">{email || 'admin@autogear.com'}</p>
+              <p className="text-xs text-gray-400 truncate">{email || 'admin@secondautogear.com'}</p>
             </div>
           </div>
           <Button

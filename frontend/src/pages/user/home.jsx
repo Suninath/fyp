@@ -10,6 +10,7 @@ import {
   ChevronDown
 } from "lucide-react";
 import { userLogout, getUserProfile } from "../../rtk/thunk/authThunk";
+import BrandMark from "../../components/common/BrandMark";
 
 const UserDashboard = () => {
   const dispatch = useDispatch();
@@ -33,8 +34,8 @@ const UserDashboard = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center space-x-4">
-              <Car className="w-8 h-8 text-blue-600" />
-              <h1 className="text-xl font-bold text-gray-900">AutoGear</h1>
+              <BrandMark size={40} className="rounded-xl" />
+              <h1 className="text-xl font-bold text-gray-900">Second Auto Gear</h1>
             </div>
             <div className="flex items-center space-x-4">
               <Button variant="ghost" onClick={() => navigate('/profile')} className="flex items-center space-x-2">
@@ -68,7 +69,7 @@ const UserDashboard = () => {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="text-center">
-          <h2 className="text-3xl font-bold text-gray-900 mb-2">Welcome to AutoGear</h2>
+          <h2 className="text-3xl font-bold text-gray-900 mb-2">Welcome to Second Auto Gear</h2>
           <p className="text-gray-600 text-lg">Manage your vehicles and account from the menu above</p>
         </div>
       </div>

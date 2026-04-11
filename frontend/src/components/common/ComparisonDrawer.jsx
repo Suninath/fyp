@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
+import { useNavigate } from "react-router-dom";
 import { X, Zap, Info, Scale } from "lucide-react";
 import { Button } from "../../ui/ui/button";
 import { clearComparison, removeFromComparison } from "../../rtk/slice/comparisonSlice";
@@ -15,6 +16,7 @@ const getImageUrl = (path) => {
 
 const ComparisonDrawer = ({ isOpen, onToggle }) => {
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   const { comparedVehicles } = useSelector((state) => state.comparison);
   const [showTip, setShowTip] = useState(true);
 
@@ -45,6 +47,16 @@ const ComparisonDrawer = ({ isOpen, onToggle }) => {
     }
   };
 
+  const handleBuyNow = (vehicleId) => {
+    onToggle(false);
+    navigate(`/vehicles/public/${vehicleId}`);
+  };
+
+  const handleAddVehicle = () => {
+    onToggle(false);
+    navigate("/vehicles/browse");
+  };
+
   return (
     <>
       <div
@@ -64,13 +76,22 @@ const ComparisonDrawer = ({ isOpen, onToggle }) => {
               <p className="text-xs text-gray-500">{comparedVehicles.length} selected</p>
             </div>
           </div>
-          <button
-            onClick={() => onToggle(false)}
-            className="p-2 rounded-lg hover:bg-gray-100 text-gray-600"
-            aria-label="Close comparison"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            <Button
+              onClick={handleAddVehicle}
+              variant="outline"
+              className="h-9 text-xs md:text-sm"
+            >
+              Add Vehicle
+            </Button>
+            <button
+              onClick={() => onToggle(false)}
+              className="p-2 rounded-lg hover:bg-gray-100 text-gray-600"
+              aria-label="Close comparison"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto bg-gray-50">
@@ -80,6 +101,12 @@ const ComparisonDrawer = ({ isOpen, onToggle }) => {
                 <Zap className="w-14 h-14 text-gray-300 mx-auto mb-4" />
                 <p className="text-gray-700 font-semibold">No Vehicles Selected</p>
                 <p className="text-sm text-gray-500 mt-1">Add 2-4 vehicles to compare.</p>
+                <Button
+                  onClick={handleAddVehicle}
+                  className="mt-4 h-10"
+                >
+                  Add Vehicle
+                </Button>
               </div>
             </div>
           ) : (
@@ -121,6 +148,13 @@ const ComparisonDrawer = ({ isOpen, onToggle }) => {
                       <div className="p-2.5">
                         <p className="text-sm font-semibold text-gray-900 line-clamp-1">{vehicle.name}</p>
                         <p className="text-xs text-gray-500 line-clamp-1">{vehicle.make} {vehicle.model}</p>
+                        <Button
+                          size="sm"
+                          className="mt-2 w-full h-8 text-xs"
+                          onClick={() => handleBuyNow(vehicle.id)}
+                        >
+                          Buy Now
+                        </Button>
                       </div>
                     </div>
                   ))}

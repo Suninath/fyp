@@ -78,64 +78,64 @@ const Contact = () => {
   const contactMethods = [
     {
       icon: <Mail className="w-8 h-8 text-purple" />,
-      title: "Enterprise Support",
-      subtitle: "Priority Response",
-      details: ["enterprise@autogear.com", "Response within 2 hours"],
-      description: "Dedicated support for business accounts and high-volume transactions.",
+      title: "Email Support",
+      subtitle: "Best for detailed queries",
+      details: ["support@secondautogear.com", "Response during business hours"],
+      description: "Send listing issues, payment questions, or account concerns and our team will follow up.",
       gradient: "from-purple/10 to-blue/10",
-      action: "Email Enterprise Team"
+      action: "Send Email"
     },
     {
       icon: <Phone className="w-8 h-8 text-blue" />,
-      title: "Global Hotline",
-      subtitle: "24/7 Available",
-      details: ["+1 (800) AUTOGEAR", "+1 (800) 288-4327"],
-      description: "Round-the-clock support in 12 languages across all time zones.",
+      title: "Phone Support",
+      subtitle: "Quick assistance",
+      details: ["+977-1-5550000", "+977-9800000000"],
+      description: "Call us for urgent help with bookings, login problems, or payment flow questions.",
       gradient: "from-blue/10 to-green/10",
-      action: "Call Now"
+      action: "Call Support"
     },
     {
       icon: <Building className="w-8 h-8 text-green" />,
-      title: "Headquarters",
-      subtitle: "Silicon Valley",
-      details: ["100 Innovation Drive", "San Francisco, CA 94105"],
-      description: "Visit our global headquarters for partnerships and enterprise solutions.",
+      title: "Main Office",
+      subtitle: "Kathmandu",
+      details: ["New Baneshwor", "Kathmandu, Nepal"],
+      description: "For business and partnership meetings, you can schedule an office visit.",
       gradient: "from-green/10 to-purple/10",
       action: "Schedule Visit"
     },
     {
       icon: <Users className="w-8 h-8 text-yellow-500" />,
-      title: "Regional Offices",
-      subtitle: "50+ Locations",
-      details: ["London • Singapore • Dubai", "Toronto • Sydney • Berlin"],
-      description: "Local presence with global expertise serving 150+ countries.",
+      title: "Community Help",
+      subtitle: "User-focused support",
+      details: ["Buyer guidance", "Seller onboarding"],
+      description: "Our team helps new users understand listing quality, inquiries, and booking steps.",
       gradient: "from-yellow-500/10 to-orange-500/10",
-      action: "Find Nearest Office"
+      action: "Talk to Team"
     }
   ];
 
   const testimonials = [
     {
-      name: "Marcus Thompson",
-      role: "Fleet Manager, Hertz Global",
-      company: "Hertz Corporation",
-      content: "AutoGear's enterprise platform transformed our fleet management operations. Their 24/7 support and custom integrations saved us Rs. 2.5 Crore annually.",
+      name: "Prakash Thapa",
+      role: "Vehicle Seller",
+      company: "Bhaktapur",
+      content: "When I had trouble updating listing details, support guided me step by step and resolved it quickly.",
       rating: 5,
       avatar: "/api/placeholder/60/60"
     },
     {
-      name: "Dr. Sarah Chen",
-      role: "COO, AutoNation",
-      company: "AutoNation Inc.",
-      content: "The premium support team's expertise and rapid response time helped us scale from 50 to 500 dealerships seamlessly.",
+      name: "Mina Rai",
+      role: "Rental Customer",
+      company: "Pokhara",
+      content: "I contacted support before booking and got a clear answer on payment and timing. Very helpful experience.",
       rating: 5,
       avatar: "/api/placeholder/60/60"
     },
     {
-      name: "David Rodriguez",
-      role: "VP Operations, CarMax",
-      company: "CarMax Group",
-      content: "Outstanding enterprise-grade platform with unparalleled support. Their API integrations and custom solutions are game-changing.",
+      name: "Sandeep Maharjan",
+      role: "Buyer",
+      company: "Lalitpur",
+      content: "The team answered my questions before purchase and I felt confident moving forward with the deal.",
       rating: 5,
       avatar: "/api/placeholder/60/60"
     }
@@ -145,7 +145,7 @@ const Contact = () => {
     { value: "general", label: "General Inquiry", icon: <MessageSquare className="w-4 h-4" /> },
     { value: "support", label: "Technical Support", icon: <HeadphonesIcon className="w-4 h-4" /> },
     { value: "business", label: "Business Partnership", icon: <Building className="w-4 h-4" /> },
-    { value: "enterprise", label: "Enterprise Solutions", icon: <Award className="w-4 h-4" /> },
+    { value: "enterprise", label: "Business Inquiry", icon: <Award className="w-4 h-4" /> },
     { value: "press", label: "Press & Media", icon: <Users className="w-4 h-4" /> },
     { value: "careers", label: "Careers", icon: <UserCheck className="w-4 h-4" /> }
   ];
@@ -165,23 +165,22 @@ const Contact = () => {
           <div className="text-center">
             <div className="inline-flex items-center px-4 py-2 bg-purple/10 rounded-full mb-8">
               <HeadphonesIcon className="w-5 h-5 text-purple mr-2" />
-              <span className="text-purple font-semibold">Enterprise Support Center</span>
+              <span className="text-purple font-semibold">Contact Second Auto Gear Support</span>
             </div>
             <h1 className="text-6xl md:text-7xl lg:text-8xl font-black mb-8 leading-tight">
               <span className="bg-gradient-to-r from-gray-900 via-purple to-blue bg-clip-text text-transparent">
-                Connect With
+                Need Help?
               </span>
               <br />
               <span className="bg-gradient-to-r from-purple via-blue to-purple bg-clip-text text-transparent">
-                AutoGear
+                Talk to
               </span>
               <br />
-              <span className="text-gray-900">Leadership</span>
+              <span className="text-gray-900">Our Team</span>
             </h1>
             <p className="text-xl text-gray-600 max-w-4xl mx-auto mb-12 leading-relaxed">
-              Join 150,000+ professionals who trust AutoGear for enterprise-grade automotive solutions.
-              Our global support team is ready to transform your business with cutting-edge technology
-              and unparalleled expertise.
+              Have a question about listings, booking, payments, or your account?
+              Send us a message and our support team will help you through it.
             </p>
             <div className="flex flex-col sm:flex-row gap-6 justify-center">
               <Button
@@ -189,7 +188,7 @@ const Contact = () => {
                 className="text-lg px-10 py-4 bg-gradient-to-r from-purple to-blue hover:from-purple/90 hover:to-blue/90 text-white font-bold rounded-xl shadow-2xl hover:shadow-purple/25 transition-all duration-300 transform hover:scale-105"
                 onClick={() => document.getElementById('contact-form').scrollIntoView({ behavior: 'smooth' })}
               >
-                Start Conversation
+                Send Message
                 <ArrowRight className="ml-3 w-6 h-6" />
               </Button>
               <Button
@@ -199,7 +198,7 @@ const Contact = () => {
                 onClick={() => navigate("/about")}
               >
                 <Users className="mr-3 w-5 h-5" />
-                Meet Our Team
+                About Second Auto Gear
               </Button>
             </div>
           </div>
@@ -214,7 +213,7 @@ const Contact = () => {
               Multiple Ways to <span className="bg-gradient-to-r from-purple to-blue bg-clip-text text-transparent">Connect</span>
             </h2>
             <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-              Choose the best way to reach our enterprise support team. We're here to help you succeed.
+              Choose the channel that works best for you. We focus on clear and practical support.
             </p>
           </div>
           <div className="grid lg:grid-cols-2 gap-8">
@@ -274,8 +273,8 @@ const Contact = () => {
                 </h2>
               </div>
               <p className="text-xl text-gray-600 mb-10 leading-relaxed">
-                Tell us about your project, partnership opportunity, or how we can help transform
-                your automotive business. Our enterprise team responds within 2 hours.
+                Tell us what you need help with, and include as much detail as possible.
+                We usually respond on business days.
               </p>
 
               {submitted && (
@@ -283,7 +282,7 @@ const Contact = () => {
                   <CheckCircle className="w-7 h-7 text-green mr-4 mt-0.5 flex-shrink-0" />
                   <div>
                     <h3 className="text-lg font-bold text-gray-900 mb-2">Message Sent Successfully!</h3>
-                    <p className="text-gray-600">Thank you for reaching out. Our enterprise support team will respond within 2 hours during business days.</p>
+                    <p className="text-gray-600">Thanks for reaching out. Our team will get back to you as soon as possible during business hours.</p>
                   </div>
                 </div>
               )}
@@ -402,7 +401,7 @@ const Contact = () => {
                     </>
                   ) : (
                     <>
-                      Send Enterprise Inquiry
+                      Send Message
                       <Send className="ml-3 w-6 h-6" />
                     </>
                   )}
@@ -419,8 +418,7 @@ const Contact = () => {
                 </h2>
               </div>
               <p className="text-xl text-gray-600 mb-10 leading-relaxed">
-                Join industry leaders who trust AutoGear for enterprise-grade solutions
-                and unparalleled support.
+                Messages from users who contacted support during buying, selling, and booking.
               </p>
 
               <div className="space-y-8">
@@ -455,20 +453,19 @@ const Contact = () => {
         </div>
       </section>
 
-      {/* Global Presence */}
+      {/* Service Coverage */}
       <section className="py-24 bg-gradient-to-r from-purple/5 via-blue/5 to-purple/5">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-20">
             <div className="inline-flex items-center px-6 py-3 bg-white/80 rounded-full mb-6">
               <Globe className="w-6 h-6 text-purple mr-2" />
-              <span className="text-purple font-semibold">Global Enterprise Presence</span>
+              <span className="text-purple font-semibold">Service Coverage</span>
             </div>
             <h2 className="text-5xl md:text-6xl font-black text-gray-900 mb-6">
-              Supporting <span className="bg-gradient-to-r from-purple to-blue bg-clip-text text-transparent">150+ Countries</span>
+              Supporting Users Across <span className="bg-gradient-to-r from-purple to-blue bg-clip-text text-transparent">Major Cities in Nepal</span>
             </h2>
             <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-              Our enterprise support spans the globe with local expertise and global resources,
-              ensuring your business succeeds wherever you operate.
+              We provide dependable support for customers in major cities and growing regional areas.
             </p>
           </div>
 
@@ -478,10 +475,10 @@ const Contact = () => {
                 <Globe className="w-8 h-8 text-purple" />
               </div>
               <div className="text-4xl font-black bg-gradient-to-r from-purple to-blue bg-clip-text text-transparent mb-3">
-                150+
+                12+
               </div>
-              <div className="text-gray-900 font-bold text-lg mb-2">Countries Served</div>
-              <div className="text-gray-600">Global automotive market coverage</div>
+              <div className="text-gray-900 font-bold text-lg mb-2">Cities Covered</div>
+              <div className="text-gray-600">Active user coverage</div>
             </div>
 
             <div className="text-center group">
@@ -489,10 +486,10 @@ const Contact = () => {
                 <Users className="w-8 h-8 text-blue" />
               </div>
               <div className="text-4xl font-black bg-gradient-to-r from-blue to-green bg-clip-text text-transparent mb-3">
-                50+
+                7
               </div>
-              <div className="text-gray-900 font-bold text-lg mb-2">Regional Offices</div>
-              <div className="text-gray-600">Local presence worldwide</div>
+              <div className="text-gray-900 font-bold text-lg mb-2">Support Specialists</div>
+              <div className="text-gray-600">Dedicated assistance team</div>
             </div>
 
             <div className="text-center group">
@@ -502,8 +499,8 @@ const Contact = () => {
               <div className="text-4xl font-black bg-gradient-to-r from-green to-purple bg-clip-text text-transparent mb-3">
                 24/7
               </div>
-              <div className="text-gray-900 font-bold text-lg mb-2">Enterprise Support</div>
-              <div className="text-gray-600">Round-the-clock assistance</div>
+              <div className="text-gray-900 font-bold text-lg mb-2">Platform Access</div>
+              <div className="text-gray-600">Browse anytime</div>
             </div>
 
             <div className="text-center group">
@@ -511,10 +508,10 @@ const Contact = () => {
                 <Zap className="w-8 h-8 text-purple" />
               </div>
               <div className="text-4xl font-black bg-gradient-to-r from-purple to-yellow-500 bg-clip-text text-transparent mb-3">
-                2hrs
+                1 day
               </div>
               <div className="text-gray-900 font-bold text-lg mb-2">Average Response</div>
-              <div className="text-gray-600">Priority support guarantee</div>
+              <div className="text-gray-600">Business-hour follow-up</div>
             </div>
           </div>
         </div>
@@ -532,15 +529,15 @@ const Contact = () => {
           </div>
 
           <h2 className="text-5xl md:text-6xl font-black mb-8 leading-tight">
-            Join the AutoGear<br />
+            Join the Second Auto Gear<br />
             <span className="bg-gradient-to-r from-white to-purple-100 bg-clip-text text-transparent">
-              Enterprise Network
+              Support Network
             </span>
           </h2>
 
           <p className="text-xl mb-12 text-purple-100 max-w-2xl mx-auto leading-relaxed">
-            Connect with industry leaders, access cutting-edge automotive technology,
-            and scale your business with enterprise-grade support and solutions.
+            Whether you are buying, listing, or renting a vehicle,
+            our team is here to help you move forward confidently.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-6 justify-center mb-12">
@@ -567,15 +564,15 @@ const Contact = () => {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
             <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6">
               <div className="text-3xl font-black mb-2">24/7</div>
-              <div className="text-purple-100">Expert Support</div>
+              <div className="text-purple-100">Platform Access</div>
             </div>
             <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6">
-              <div className="text-3xl font-black mb-2">Global</div>
-              <div className="text-purple-100">Enterprise Network</div>
+              <div className="text-3xl font-black mb-2">Local</div>
+              <div className="text-purple-100">Nepal User Base</div>
             </div>
             <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6">
               <div className="text-3xl font-black mb-2">Secure</div>
-              <div className="text-purple-100">Bank-Level Security</div>
+              <div className="text-purple-100">Safe Transactions</div>
             </div>
           </div>
         </div>

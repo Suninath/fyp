@@ -8,6 +8,7 @@ import { userLogout } from "../../rtk/thunk/authThunk";
 import { getConversations } from "../../rtk/thunk/chatThunk";
 import { Badge } from "../../ui/ui/badge";
 import NotificationBell from "./NotificationBell";
+import BrandMark from "./BrandMark";
 
 const Navigation = () => {
   const navigate = useNavigate();
@@ -26,10 +27,9 @@ const Navigation = () => {
     }
   }, [authenticate, dispatch]);
 
-  const handleLogout = () => {
-    dispatch(userLogout()).then(() => {
-      navigate("/login");
-    });
+  const handleLogout = async () => {
+    await dispatch(userLogout());
+    navigate("/login", { replace: true });
     setMobileMenuOpen(false);
   };
 
@@ -45,11 +45,9 @@ const Navigation = () => {
               setMobileMenuOpen(false);
             }}
           >
-            <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-purple-600 to-blue-600 rounded-xl flex items-center justify-center">
-              <Car className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
-            </div>
+            <BrandMark size={40} className="rounded-xl" />
             <span className="text-xl sm:text-2xl font-black bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
-              AutoGear
+              Second Auto Gear
             </span>
           </div>
 

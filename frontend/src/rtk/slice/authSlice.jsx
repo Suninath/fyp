@@ -121,7 +121,7 @@ const authSlice = createSlice({
 
     builder.addCase(userLogout.fulfilled, (state) => {
       state.loading = false;
-      state.status = "idle";
+      state.status = "failed";
       state.login = null;
       state.authenticate = false;
       state.role = null;
@@ -131,7 +131,7 @@ const authSlice = createSlice({
     builder.addCase(userLogout.rejected, (state) => {
       state.loading = false;
       // Even if logout fails on server, clear local state
-      state.status = "idle";
+      state.status = "failed";
       state.login = null;
       state.authenticate = false;
       state.role = null;

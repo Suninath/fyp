@@ -56,7 +56,7 @@ function SignupComponent() {
         <div className="absolute inset-0 bg-gray-900/50" />
         <div className="relative z-10 flex flex-col justify-center px-12 xl:px-16 text-white">
           <h1 className="text-3xl xl:text-4xl font-semibold tracking-tight">
-            Welcome to Vehicle Marketplace
+            Welcome to Second Auto Gear
           </h1>
           <p className="mt-4 text-base xl:text-lg text-gray-300 max-w-sm leading-relaxed">
             Sign up to buy, sell, and rent vehicles easily and securely.

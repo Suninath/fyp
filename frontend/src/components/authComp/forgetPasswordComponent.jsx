@@ -38,7 +38,7 @@ function ForgetPasswordComponent() {
       <div className="relative hidden lg:flex">
         <img
           src="https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=1170&q=80"
-          alt="Vehicle marketplace"
+          alt="Second Auto Gear"
           className="absolute inset-0 h-full w-full object-cover"
         />
         <div className="absolute inset-0 bg-gray-900/50" />

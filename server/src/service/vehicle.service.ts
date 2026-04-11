@@ -8,6 +8,7 @@ import { USER_ROLE } from "../constant/enums";
 import cloudinary from "../config/cloudinary.config";
 import fs from "fs";
 import path from "path";
+import { Between } from "typeorm";
 
 const vehicleRepository = AppDataSource.getRepository(VehicleEntity);
 const userRepository = AppDataSource.getRepository(UserEntity);
@@ -18,6 +19,7 @@ const VEHICLE_PRICE_MAX = 9_999_999_999.99; // numeric(12,2) max absolute value 
 const VEHICLE_YEAR_MIN = 1886;
 const VEHICLE_YEAR_MAX = new Date().getFullYear() + 1;
 const VEHICLE_MILEAGE_MAX = 2_147_483_647; // PostgreSQL int upper bound
+const MAX_VEHICLES_PER_USER_PER_DAY = 10;
 
 const isValidVehicleCategory = (category: string): category is VEHICLE_CATEGORY => {
   return VEHICLE_CATEGORY_VALUES.includes(category as VEHICLE_CATEGORY);
@@ -220,6 +222,30 @@ const vehicleService = {
           code: 403,
           message:
             "Account verification required. Please submit your verification documents for admin approval before selling vehicles.",
+        };
+      }
+
+      const now = new Date();
+      const startOfToday = new Date(now);
+      startOfToday.setHours(0, 0, 0, 0);
+
+      const endOfToday = new Date(now);
+      endOfToday.setHours(23, 59, 59, 999);
+
+      const existingVehicleCount = await vehicleRepository.count({
+        where: {
+          uploader: {
+            id: uploader.id,
+          },
+          createdAt: Between(startOfToday, endOfToday),
+        },
+      });
+
+      if (existingVehicleCount >= MAX_VEHICLES_PER_USER_PER_DAY) {
+        return {
+          status: false,
+          code: 400,
+          message: `Daily vehicle limit reached. A user can create a maximum of ${MAX_VEHICLES_PER_USER_PER_DAY} vehicles per day.`,
         };
       }
 

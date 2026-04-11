@@ -58,7 +58,7 @@ function LoginComponent() {
 
         <div className="relative z-10 flex flex-col justify-center px-12 xl:px-20 text-white">
           <h1 className="text-3xl xl:text-4xl font-semibold tracking-tight">
-            Vehicle Marketplace
+            Second Auto Gear
           </h1>
           <p className="mt-5 text-base xl:text-lg text-gray-300 max-w-md leading-relaxed">
             Buy, sell, and rent vehicles through a secure and professionally
@@ -178,7 +178,7 @@ function LoginComponent() {
           </form>
         </div>
       </div>
-    </div>
+      </div>
   );
 }
 

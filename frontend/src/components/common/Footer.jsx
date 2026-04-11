@@ -1,5 +1,6 @@
 import React from "react";
-import { Car, Globe, Mail, Phone } from "lucide-react";
+import { Globe, Mail, Phone } from "lucide-react";
+import BrandMark from "./BrandMark";
 
 const Footer = () => {
   return (
@@ -8,11 +9,9 @@ const Footer = () => {
         <div className="grid md:grid-cols-4 gap-12 mb-12">
           <div className="md:col-span-2">
             <div className="flex items-center space-x-3 mb-6">
-              <div className="w-12 h-12 bg-gradient-to-br from-purple-600 to-blue-600 rounded-xl flex items-center justify-center">
-                <Car className="w-7 h-7 text-white" />
-              </div>
+              <BrandMark size={48} className="rounded-xl" />
               <div>
-                <span className="text-3xl font-bold">AutoGear</span>
+                <span className="text-3xl font-bold">Second Auto Gear</span>
                 <div className="text-sm text-gray-400">Premium Automotive Marketplace</div>
               </div>
             </div>
@@ -129,7 +128,7 @@ const Footer = () => {
         <div className="border-t border-gray-800 pt-8">
           <div className="flex flex-col md:flex-row justify-between items-center">
             <p className="text-gray-400 mb-4 md:mb-0">
-              © 2024 AutoGear. All rights reserved. Built with precision for automotive excellence.
+              © 2024 Second Auto Gear. All rights reserved. Built with precision for automotive excellence.
             </p>
             <div className="flex space-x-6 text-sm text-gray-400">
               <a href="#" className="hover:text-white transition-colors">

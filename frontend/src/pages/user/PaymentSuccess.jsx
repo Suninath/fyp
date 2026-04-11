@@ -30,7 +30,7 @@ const PaymentSuccess = () => {
             Payment Successful!
           </h1>
           <p className="text-gray-600 mb-6">
-            Your booking has been confirmed. Thank you for choosing AutoGear!
+            Your booking has been confirmed. Thank you for choosing Second Auto Gear!
           </p>
 
           {/* Booking ID */}
