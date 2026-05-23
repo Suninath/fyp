@@ -1,6 +1,6 @@
-import React from "react";
+import React, { useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { useSelector } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { Button } from "../../ui/ui/button";
 import { Card, CardContent } from "../../ui/ui/card";
 import {
@@ -16,10 +16,13 @@ import {
 } from "lucide-react";
 import Navigation from "../../components/common/Navigation";
 import Footer from "../../components/common/Footer";
+import { getPublicVehicles } from "../../rtk/thunk/vehicleThunk";
 
 const About = () => {
+  const dispatch = useDispatch();
   const navigate = useNavigate();
   const { authenticate, role } = useSelector((state) => state.auth);
+  const { publicVehicles } = useSelector((state) => state.vehicle);
   const fallbackCarImage =
     "https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?auto=format&fit=crop&w=1200&q=80";
 
@@ -27,6 +30,20 @@ const About = () => {
     event.currentTarget.onerror = null;
     event.currentTarget.src = fallbackCarImage;
   };
+
+  const getVehicleImageUrl = (path) => {
+    if (!path) return fallbackCarImage;
+    if (path.startsWith("http") || path.startsWith("data:")) return path;
+    const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000";
+    const cleanPath = path.startsWith("/") ? path.slice(1) : path;
+    return `${backendUrl}/${cleanPath.replace(/\\/g, "/")}`;
+  };
+
+  useEffect(() => {
+    if (publicVehicles.length === 0) {
+      dispatch(getPublicVehicles({ limit: 6, page: 1, category: "Buy/Sell" }));
+    }
+  }, [dispatch, publicVehicles.length]);
 
   const values = [
     {
@@ -72,38 +89,15 @@ const About = () => {
     },
   ];
 
-  const marketplaceCars = [
-    {
-      label: "SUV EV",
-      image:
-        "https://images.unsplash.com/photo-1619767886558-efdc259cde1a?auto=format&fit=crop&w=1200&q=80",
-    },
-    {
-      label: "SUV 5 Seater",
-      image:
-        "https://images.unsplash.com/photo-1606664515524-ed2f786a0bd6?auto=format&fit=crop&w=1200&q=80",
-    },
-    {
-      label: "Hatchback",
-      image:
-        "https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=1200&q=80",
-    },
-    {
-      label: "4WD Pickup",
-      image:
-        "https://images.unsplash.com/photo-1552519507-da3b142c6e3d?auto=format&fit=crop&w=1200&q=80",
-    },
-    {
-      label: "Sedan",
-      image:
-        "https://images.unsplash.com/photo-1550355291-bbee04a92027?auto=format&fit=crop&w=1200&q=80",
-    },
-    {
-      label: "Premium",
-      image:
-        "https://images.unsplash.com/photo-1494976388531-d1058494cdd8?auto=format&fit=crop&w=1200&q=80",
-    },
-  ];
+  const marketplaceCars = useMemo(
+    () =>
+      publicVehicles.slice(0, 6).map((vehicle) => ({
+        id: vehicle.id,
+        label: `${vehicle.make || ""} ${vehicle.model || vehicle.name || "Vehicle"}`.trim(),
+        image: getVehicleImageUrl(vehicle.images?.[0]),
+      })),
+    [publicVehicles],
+  );
 
   const ctaTarget = authenticate
     ? role === "admin"
@@ -180,28 +174,34 @@ const About = () => {
             </p>
           </div>
 
-          <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {marketplaceCars.map((car) => (
-              <button
-                key={car.label}
-                type="button"
-                onClick={() => navigate("/vehicles/browse")}
-                className="group relative aspect-[16/10] overflow-hidden rounded-xl border border-slate-200"
-              >
-                <img
-                  src={car.image}
-                  alt={car.label}
-                  onError={handleImageError}
-                  className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
-                <div className="absolute inset-x-3 bottom-3 flex items-center justify-between">
-                  <span className="text-sm font-bold text-white">{car.label}</span>
-                  <span className="rounded-full bg-white/20 px-2.5 py-1 text-[11px] font-semibold text-white">Browse</span>
-                </div>
-              </button>
-            ))}
-          </div>
+          {marketplaceCars.length > 0 ? (
+            <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {marketplaceCars.map((car) => (
+                <button
+                  key={car.id}
+                  type="button"
+                  onClick={() => navigate(`/vehicles/public/${car.id}`)}
+                  className="group relative aspect-[16/10] overflow-hidden rounded-xl border border-slate-200"
+                >
+                  <img
+                    src={car.image}
+                    alt={car.label}
+                    onError={handleImageError}
+                    className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
+                  <div className="absolute inset-x-3 bottom-3 flex items-center">
+                    <span className="text-sm font-bold text-white">{car.label}</span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="mt-8 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center">
+              <p className="text-base font-semibold text-slate-900">No public cars listed yet</p>
+              <p className="mt-1 text-sm text-slate-600">Once listings are added, this section will show your own marketplace cars.</p>
+            </div>
+          )}
         </div>
       </section>
 

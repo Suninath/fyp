@@ -8,7 +8,7 @@ import { USER_ROLE } from "../constant/enums";
 import cloudinary from "../config/cloudinary.config";
 import fs from "fs";
 import path from "path";
-import { Between } from "typeorm";
+import { Between, Brackets } from "typeorm";
 
 const vehicleRepository = AppDataSource.getRepository(VehicleEntity);
 const userRepository = AppDataSource.getRepository(UserEntity);
@@ -20,6 +20,26 @@ const VEHICLE_YEAR_MIN = 1886;
 const VEHICLE_YEAR_MAX = new Date().getFullYear() + 1;
 const VEHICLE_MILEAGE_MAX = 2_147_483_647; // PostgreSQL int upper bound
 const MAX_VEHICLES_PER_USER_PER_DAY = 10;
+
+const parseIntegerParam = (value: unknown): number | null => {
+  if (!hasValue(value)) return null;
+
+  const parsedValue = parseInt(String(value), 10);
+  return Number.isNaN(parsedValue) ? null : parsedValue;
+};
+
+const parseMultiValueParam = (value: unknown): string[] => {
+  if (!hasValue(value)) return [];
+
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item).trim()).filter(Boolean);
+  }
+
+  return String(value)
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+};
 
 const isValidVehicleCategory = (category: string): category is VEHICLE_CATEGORY => {
   return VEHICLE_CATEGORY_VALUES.includes(category as VEHICLE_CATEGORY);
@@ -121,6 +141,8 @@ const vehicleService = {
         mileage,
         fuelType,
         transmission,
+        bodyType,
+        ownerCount,
         color,
         location,
         condition,
@@ -201,6 +223,23 @@ const vehicleService = {
         parsedMileage = mileageNumber;
       }
 
+      let parsedOwnerCount: number | undefined = undefined;
+      if (hasValue(ownerCount)) {
+        const ownerCountNumber = parseIntegerParam(ownerCount);
+        if (
+          ownerCountNumber === null ||
+          ownerCountNumber < 1 ||
+          ownerCountNumber > 99
+        ) {
+          return {
+            status: false,
+            code: 400,
+            message: "Owner count must be a whole number between 1 and 99",
+          };
+        }
+        parsedOwnerCount = ownerCountNumber;
+      }
+
       // Verify user exists and is verified
       const uploader = await userRepository.findOne({
         where: { id: user.id },
@@ -265,6 +304,8 @@ const vehicleService = {
         mileage: parsedMileage,
         fuelType,
         transmission,
+        bodyType,
+        ownerCount: parsedOwnerCount,
         color,
         location,
         condition,
@@ -336,6 +377,8 @@ const vehicleService = {
             mileage: vehicle.mileage,
             fuelType: vehicle.fuelType,
             transmission: vehicle.transmission,
+            bodyType: vehicle.bodyType,
+            ownerCount: vehicle.ownerCount,
             color: vehicle.color,
             location: vehicle.location,
             condition: vehicle.condition,
@@ -545,6 +588,23 @@ const vehicleService = {
         parsedUpdateMileage = mileageNumber;
       }
 
+      let parsedUpdateOwnerCount: number | undefined;
+      if (hasValue(updateData.ownerCount)) {
+        const ownerCountNumber = parseIntegerParam(updateData.ownerCount);
+        if (
+          ownerCountNumber === null ||
+          ownerCountNumber < 1 ||
+          ownerCountNumber > 99
+        ) {
+          return {
+            status: false,
+            code: 400,
+            message: "Owner count must be a whole number between 1 and 99",
+          };
+        }
+        parsedUpdateOwnerCount = ownerCountNumber;
+      }
+
       // Check if vehicle exists and belongs to user
       const vehicle = await vehicleRepository.findOne({
         where: {
@@ -599,6 +659,7 @@ const vehicleService = {
         year: parsedUpdateYear ?? vehicle.year,
         price: parsedUpdatePrice ?? vehicle.price,
         mileage: parsedUpdateMileage ?? vehicle.mileage,
+        ownerCount: parsedUpdateOwnerCount ?? vehicle.ownerCount,
         images: imagesToUpdate,
       });
 
@@ -616,6 +677,8 @@ const vehicleService = {
           mileage: updatedVehicle.mileage,
           fuelType: updatedVehicle.fuelType,
           transmission: updatedVehicle.transmission,
+          bodyType: updatedVehicle.bodyType,
+          ownerCount: updatedVehicle.ownerCount,
           color: updatedVehicle.color,
           location: updatedVehicle.location,
           condition: updatedVehicle.condition,
@@ -691,7 +754,25 @@ const vehicleService = {
   /* ===================== GET ALL PUBLIC VEHICLES ===================== */
   async getAllVehicles(req: Request) {
     try {
-      const { page = 1, limit = 10, search, category } = req.query;
+      const {
+        page = 1,
+        limit = 10,
+        search,
+        category,
+        brand,
+        fuel,
+        minYear,
+        maxYear,
+        transmission,
+        bodyType,
+        minKm,
+        maxKm,
+        ownerCount,
+        sort,
+        maxMileage,
+        minPrice,
+        maxPrice,
+      } = req.query;
 
       const queryBuilder = vehicleRepository
         .createQueryBuilder("vehicle")
@@ -711,12 +792,140 @@ const vehicleService = {
         queryBuilder.andWhere("vehicle.category = :category", { category });
       }
 
-      // Add pagination
-      const offset = (parseInt(page as string) - 1) * parseInt(limit as string);
-      queryBuilder.skip(offset).take(parseInt(limit as string));
+      const brandValues = parseMultiValueParam(brand);
+      if (brandValues.length > 0) {
+        queryBuilder.andWhere(
+          new Brackets((qb) => {
+            brandValues.forEach((value, index) => {
+              const parameterName = `brand${index}`;
+              if (index === 0) {
+                qb.where(`vehicle.make ILIKE :${parameterName}`, { [parameterName]: `%${value}%` });
+              } else {
+                qb.orWhere(`vehicle.make ILIKE :${parameterName}`, { [parameterName]: `%${value}%` });
+              }
+            });
+          }),
+        );
+      }
 
-      // Order by creation date (newest first)
-      queryBuilder.orderBy("vehicle.createdAt", "DESC");
+      const fuelValues = parseMultiValueParam(fuel);
+      if (fuelValues.length > 0) {
+        queryBuilder.andWhere(
+          new Brackets((qb) => {
+            fuelValues.forEach((value, index) => {
+              const parameterName = `fuel${index}`;
+              if (index === 0) {
+                qb.where(`vehicle.fuelType ILIKE :${parameterName}`, { [parameterName]: `%${value}%` });
+              } else {
+                qb.orWhere(`vehicle.fuelType ILIKE :${parameterName}`, { [parameterName]: `%${value}%` });
+              }
+            });
+          }),
+        );
+      }
+
+      const transmissionValues = parseMultiValueParam(transmission);
+      if (transmissionValues.length > 0) {
+        queryBuilder.andWhere(
+          new Brackets((qb) => {
+            transmissionValues.forEach((value, index) => {
+              const parameterName = `transmission${index}`;
+              if (index === 0) {
+                qb.where(`vehicle.transmission ILIKE :${parameterName}`, { [parameterName]: `%${value}%` });
+              } else {
+                qb.orWhere(`vehicle.transmission ILIKE :${parameterName}`, { [parameterName]: `%${value}%` });
+              }
+            });
+          }),
+        );
+      }
+
+      if (bodyType) {
+        queryBuilder.andWhere("vehicle.bodyType ILIKE :bodyType", {
+          bodyType: `%${bodyType}%`,
+        });
+      }
+
+      // Add year range filters
+      const parsedMinYear = parseIntegerParam(minYear);
+      if (parsedMinYear !== null) {
+        queryBuilder.andWhere("vehicle.year >= :minYear", { minYear: parsedMinYear });
+      }
+
+      const parsedMaxYear = parseIntegerParam(maxYear);
+      if (parsedMaxYear !== null) {
+        queryBuilder.andWhere("vehicle.year <= :maxYear", { maxYear: parsedMaxYear });
+      }
+
+      // Add mileage filters
+      const parsedMinKm = parseIntegerParam(minKm);
+      if (parsedMinKm !== null) {
+        queryBuilder.andWhere("vehicle.mileage >= :minKm", { minKm: parsedMinKm });
+      }
+
+      const parsedMaxKm = parseIntegerParam(maxKm);
+      if (parsedMaxKm !== null) {
+        queryBuilder.andWhere("vehicle.mileage <= :maxKm", { maxKm: parsedMaxKm });
+      }
+
+      // Preserve existing maxMileage behavior while adding minKm/maxKm
+      const parsedMaxMileage = parseIntegerParam(maxMileage);
+      if (parsedMaxMileage !== null) {
+        queryBuilder.andWhere("vehicle.mileage <= :maxMileage", { maxMileage: parsedMaxMileage });
+      }
+
+      if (ownerCount !== undefined && ownerCount !== null && ownerCount !== "") {
+        const ownerCountValue = String(ownerCount).trim();
+        const ownerCountNumber = parseInt(ownerCountValue, 10);
+
+        if (!Number.isNaN(ownerCountNumber)) {
+          if (ownerCountValue.includes("+") || ownerCountNumber >= 4) {
+            queryBuilder.andWhere("vehicle.ownerCount >= :ownerCount", { ownerCount: 4 });
+          } else {
+            queryBuilder.andWhere("vehicle.ownerCount = :ownerCount", { ownerCount: ownerCountNumber });
+          }
+        }
+      }
+
+      // Add price range filters
+      const parsedMinPrice = parseIntegerParam(minPrice);
+      if (parsedMinPrice !== null) {
+        queryBuilder.andWhere("vehicle.price >= :minPrice", { minPrice: parsedMinPrice });
+      }
+
+      const parsedMaxPrice = parseIntegerParam(maxPrice);
+      if (parsedMaxPrice !== null) {
+        queryBuilder.andWhere("vehicle.price <= :maxPrice", { maxPrice: parsedMaxPrice });
+      }
+
+      // Add pagination
+      const parsedPage = parseIntegerParam(page) ?? 1;
+      const parsedLimit = parseIntegerParam(limit) ?? 10;
+      const offset = (parsedPage - 1) * parsedLimit;
+      queryBuilder.skip(offset).take(parsedLimit);
+
+      // Apply requested sort order, defaulting to newest first
+      switch (sort) {
+        case "price_asc":
+          queryBuilder.orderBy("vehicle.price", "ASC");
+          break;
+        case "price_desc":
+          queryBuilder.orderBy("vehicle.price", "DESC");
+          break;
+        case "year_asc":
+          queryBuilder.orderBy("vehicle.year", "ASC");
+          break;
+        case "year_desc":
+          queryBuilder.orderBy("vehicle.year", "DESC");
+          break;
+        case "mileage_asc":
+          queryBuilder.orderBy("vehicle.mileage", "ASC");
+          break;
+        case "newest":
+        default:
+          queryBuilder.orderBy("vehicle.createdAt", "DESC");
+          break;
+      }
 
       const [vehicles, total] = await queryBuilder.getManyAndCount();
 
@@ -735,6 +944,8 @@ const vehicleService = {
             mileage: vehicle.mileage,
             fuelType: vehicle.fuelType,
             transmission: vehicle.transmission,
+            bodyType: vehicle.bodyType,
+            ownerCount: vehicle.ownerCount,
             color: vehicle.color,
             location: vehicle.location,
             condition: vehicle.condition,

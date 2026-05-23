@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../..
 import { Input } from "../../ui/ui/input";
 import { Label } from "../../ui/ui/label";
 import { Textarea } from "../../ui/ui/textarea";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "../../ui/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "../../ui/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../ui/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../ui/ui/table";
 import {
@@ -24,6 +24,7 @@ import {
   MessageSquare // Added icon
 } from "lucide-react";
 import { getUserVehicles, createVehicle, updateVehicle, deleteVehicle } from "../../rtk/thunk/vehicleThunk";
+import { clearLastCreatedVehicleId } from "../../rtk/slice/vehicleSlice";
 import CommentSection from "../../components/common/CommentSection"; // Import the component
 import Pagination from "../../components/common/Pagination";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
@@ -41,12 +42,12 @@ const getImageUrl = (path) => {
 const UserVehiclesPage = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const { vehicles, loading, pagination } = useSelector((state) => state.vehicle);
+  const { vehicles, loading, pagination, lastCreatedVehicleId } = useSelector((state) => state.vehicle);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  // modal removed: use full-page create route
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [vehicleToDelete, setVehicleToDelete] = useState(null);
@@ -76,6 +77,14 @@ const UserVehiclesPage = () => {
     console.log("UserVehiclesPage mounted, dispatching loadVehicles");
     loadVehicles();
   }, [dispatch, currentPage, pageSize, searchTerm]);
+
+  useEffect(() => {
+    if (!lastCreatedVehicleId) return undefined;
+    const timer = setTimeout(() => {
+      dispatch(clearLastCreatedVehicleId());
+    }, 5000);
+    return () => clearTimeout(timer);
+  }, [dispatch, lastCreatedVehicleId]);
 
   const loadVehicles = () => {
     dispatch(getUserVehicles({
@@ -126,7 +135,6 @@ const UserVehiclesPage = () => {
       }
 
       await dispatch(createVehicle(formData)).unwrap();
-      setIsCreateModalOpen(false);
       resetForm();
       loadVehicles();
     } catch (error) {
@@ -303,31 +311,14 @@ const UserVehiclesPage = () => {
                   />
                 </div>
               </div>
-              <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
-                <DialogTrigger asChild>
-                  <Button className="bg-gradient-to-r from-purple to-blue hover:from-purple hover:to-blue text-white shadow-md hover:shadow-lg transition-all">
-                    <Plus className="w-4 h-4 mr-2" />
-                    Add Vehicle
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-0 border-0 shadow-2xl bg-white rounded-lg">
-                  <div className="bg-gradient-to-r from-purple to-blue text-white p-4 sm:p-6">
-                    <DialogTitle className="text-white text-xl sm:text-2xl font-bold">Add New Vehicle</DialogTitle>
-                    <DialogDescription className="text-gray-100 mt-2 text-sm sm:text-base">
-                      Fill in the details to list your vehicle for sale.
-                    </DialogDescription>
-                  </div>
-                  <div className="p-4 sm:p-6 bg-white">
-                    <VehicleForm
-                      formData={vehicleForm}
-                      setFormData={setVehicleForm}
-                      onSubmit={handleCreateVehicle}
-                      submitLabel="Create Vehicle"
-                      loading={loading}
-                    />
-                  </div>
-                </DialogContent>
-              </Dialog>
+              <Button
+                variant="secondary"
+                onClick={() => navigate('/user/create-vehicle')}
+                className="flex-none px-5 py-2.5 rounded-lg font-semibold flex items-center gap-2"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Add Vehicle
+              </Button>
             </div>
 
             {/* Stats */}
@@ -370,7 +361,11 @@ const UserVehiclesPage = () => {
                 <p className="text-gray-600 mb-6">
                   {searchTerm ? 'No vehicles match your search criteria.' : 'You haven\'t listed any vehicles yet.'}
                 </p>
-                <Button onClick={() => setIsCreateModalOpen(true)} className="bg-gradient-to-r from-purple to-blue hover:from-purple hover:to-blue text-white shadow-md hover:shadow-lg transition-all">
+                <Button
+                  variant="secondary"
+                  onClick={() => navigate('/user/create-vehicle')}
+                  className="flex-none px-5 py-2.5 rounded-lg font-semibold flex items-center gap-2"
+                >
                   <Plus className="w-4 h-4 mr-2" />
                   Add Your First Vehicle
                 </Button>
@@ -448,13 +443,27 @@ const UserVehiclesPage = () => {
                     )}
                     
                     {/* Status Badge */}
+                    <div className="absolute top-4 left-4 z-10 flex flex-col gap-2">
+                      {vehicle.id === lastCreatedVehicleId && (
+                        <span className="inline-flex items-center rounded-full bg-emerald-600 px-3 py-1 text-xs font-semibold text-white shadow-md">
+                          New
+                        </span>
+                      )}
+                    </div>
                     <div className="absolute top-4 right-4 z-10">
-                      <span className={`px-4 py-1.5 rounded-full text-xs font-bold backdrop-blur-md border transition-all duration-300 ${
+                      <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold shadow-md ${
                         vehicle.condition === 'sold'
-                          ? 'bg-red-500/20 text-red-300 border-red-500/40'
-                          : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                          ? 'bg-red-600 text-white'
+                          : vehicle.condition === 'reserved' || vehicle.condition === 'pending'
+                            ? 'bg-amber-600 text-white'
+                            : 'bg-black text-white'
                       }`}>
-                        {vehicle.condition === 'sold' ? '✓ Sold' : '● Available'}
+                        <span className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-white" />
+                        {vehicle.condition === 'sold'
+                          ? 'Sold'
+                          : vehicle.condition === 'reserved' || vehicle.condition === 'pending'
+                            ? 'Reserved'
+                            : 'Available'}
                       </span>
                     </div>
                   </div>

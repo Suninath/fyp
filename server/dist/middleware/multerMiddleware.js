@@ -3,13 +3,14 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.handleMulterError = exports.uploadFields = exports.uploadMultiple = exports.uploadSingle = void 0;
+exports.handleMulterError = exports.uploadDocumentWithFields = exports.uploadDocumentField = exports.uploadDocumentSingle = exports.uploadFields = exports.uploadMultiple = exports.uploadSingle = void 0;
 const multer_1 = __importDefault(require("multer"));
 const path_1 = __importDefault(require("path"));
 const fs_1 = __importDefault(require("fs"));
 // Define allowed file types
-const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png'];
-const allowedExtensions = ['.jpg', '.jpeg', '.png'];
+const allowedImageTypes = ['image/jpeg', 'image/jpg', 'image/png'];
+const allowedDocumentTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
+const allowedExtensions = ['.jpg', '.jpeg', '.png', '.pdf'];
 // Ensure uploads directory exists
 const uploadsDir = path_1.default.join(__dirname, '../../uploads');
 if (!fs_1.default.existsSync(uploadsDir)) {
@@ -34,11 +35,21 @@ const storage = multer_1.default.diskStorage({
 // File filter function
 const fileFilter = (req, file, cb) => {
     // Check MIME type
-    if (allowedTypes.includes(file.mimetype)) {
+    if (allowedImageTypes.includes(file.mimetype)) {
         cb(null, true);
     }
     else {
         cb(new Error('Invalid file type. Only JPG, JPEG, and PNG files are allowed.'));
+    }
+};
+// File filter for documents (images and PDFs)
+const documentFileFilter = (req, file, cb) => {
+    // Check MIME type
+    if (allowedDocumentTypes.includes(file.mimetype)) {
+        cb(null, true);
+    }
+    else {
+        cb(new Error('Invalid file type. Only JPG, JPEG, PNG, and PDF files are allowed.'));
     }
 };
 // Configure multer
@@ -50,12 +61,27 @@ const upload = (0, multer_1.default)({
         files: 10 // Maximum 10 files
     }
 });
+// Configure multer for documents (PDF + Images)
+const uploadDoc = (0, multer_1.default)({
+    storage: storage,
+    fileFilter: documentFileFilter,
+    limits: {
+        fileSize: 10 * 1024 * 1024, // 10MB limit per document file
+        files: 1 // One document at a time
+    }
+});
 // Export middleware functions
 exports.uploadSingle = upload.single('image');
 exports.uploadMultiple = upload.array('images', 10); // Allow up to 10 images
 exports.uploadFields = upload.fields([
     { name: 'images', maxCount: 10 },
     { name: 'profileImage', maxCount: 1 }
+]);
+// Export document upload middleware
+exports.uploadDocumentSingle = uploadDoc.single('document');
+exports.uploadDocumentField = uploadDoc.single('file');
+exports.uploadDocumentWithFields = uploadDoc.fields([
+    { name: 'file', maxCount: 1 }
 ]);
 // Error handling middleware
 const handleMulterError = (error, req, res, next) => {

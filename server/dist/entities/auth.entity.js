@@ -30,13 +30,25 @@ __decorate([
     __metadata("design:type", String)
 ], AuthEntity.prototype, "role", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ default: false }),
+    (0, typeorm_1.Column)({ name: "email_verified", default: false }),
     __metadata("design:type", Boolean)
-], AuthEntity.prototype, "verified", void 0);
+], AuthEntity.prototype, "emailVerified", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ name: "account_verified", default: false }),
+    __metadata("design:type", Boolean)
+], AuthEntity.prototype, "accountVerified", void 0);
 __decorate([
     (0, typeorm_1.Column)({ name: "is_blocked", default: false }),
     __metadata("design:type", Boolean)
 ], AuthEntity.prototype, "isBlocked", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ name: "verification_rejected", default: false }),
+    __metadata("design:type", Boolean)
+], AuthEntity.prototype, "verificationRejected", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ name: "rejection_reason", nullable: true }),
+    __metadata("design:type", String)
+], AuthEntity.prototype, "rejectionReason", void 0);
 __decorate([
     (0, typeorm_1.OneToOne)(() => user_entity_1.UserEntity, user => user.auth),
     (0, typeorm_1.JoinColumn)({ name: "user_id" }) // 🔑 FK HERE

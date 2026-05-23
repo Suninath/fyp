@@ -8,23 +8,16 @@ const CreateVehiclePage = () => {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-emerald-50/30 py-8">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <Button
           variant="outline"
-          onClick={() => navigate(-1)}
-          className="mb-6 flex items-center gap-2"
+          onClick={() => navigate('/vehicles')}
+          className="mb-6 flex items-center gap-2 rounded-xl border-2 border-slate-300 bg-white px-4 py-2.5 font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
         >
           <ArrowLeft className="w-4 h-4" />
           Back
         </Button>
-
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Create Vehicle Listing</h1>
-          <p className="text-gray-600 mt-2">
-            Add your vehicle to our marketplace and reach thousands of potential buyers.
-          </p>
-        </div>
 
         <CreateVehicleForm />
       </div>

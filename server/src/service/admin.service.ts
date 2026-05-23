@@ -82,15 +82,20 @@ const getVehicleInterestInsights = async (
     const viewer = vehicleView.viewer;
 
     if (!vehicleId || !viewerId || !viewer) return;
+    const resolvedViewerId = viewer.id;
+    if (resolvedViewerId == null) return;
+
+    const viewerName = viewer.name || "Unknown";
+    const viewerAuthEmail = viewer.auth?.email || null;
 
     if (!viewersByVehicle.has(vehicleId)) {
       viewersByVehicle.set(vehicleId, new Map());
     }
 
     viewersByVehicle.get(vehicleId)?.set(viewerId, {
-      id: viewer.id,
-      name: viewer.name,
-      email: viewer.auth?.email || null,
+      id: resolvedViewerId,
+      name: viewerName,
+      email: viewerAuthEmail,
       viewCount: Number(vehicleView.viewCount || 0),
     });
   });
@@ -177,16 +182,21 @@ const getVehicleInterestInsights = async (
     const vehicleId = booking.vehicle?.id;
     const buyerId = booking.user?.id;
 
-    if (!vehicleId || !buyerId) return;
+    if (!vehicleId || !buyerId || !booking.user) return;
+    const resolvedBookingUserId = booking.user.id;
+    if (resolvedBookingUserId == null) return;
+
+    const buyerName = booking.user.name || "Unknown";
+    const buyerEmail = booking.user.auth?.email || null;
 
     if (!buyersByVehicle.has(vehicleId)) {
       buyersByVehicle.set(vehicleId, new Map());
     }
 
     buyersByVehicle.get(vehicleId)?.set(buyerId, {
-      id: booking.user.id,
-      name: booking.user.name,
-      email: booking.user.auth?.email || null,
+      id: resolvedBookingUserId,
+      name: buyerName,
+      email: buyerEmail,
     });
   });
 
@@ -194,16 +204,21 @@ const getVehicleInterestInsights = async (
     const vehicleId = transaction.vehicle?.id || transaction.vehicleId;
     const buyerId = transaction.buyer?.id || transaction.buyerId;
 
-    if (!vehicleId || !buyerId) return;
+    if (!vehicleId || !buyerId || !transaction.buyer) return;
+    const resolvedTransactionBuyerId = transaction.buyer.id;
+    if (resolvedTransactionBuyerId == null) return;
+
+    const buyerName = transaction.buyer.name || "Unknown";
+    const buyerEmail = transaction.buyer.auth?.email || null;
 
     if (!buyersByVehicle.has(vehicleId)) {
       buyersByVehicle.set(vehicleId, new Map());
     }
 
     buyersByVehicle.get(vehicleId)?.set(buyerId, {
-      id: transaction.buyer.id,
-      name: transaction.buyer.name,
-      email: transaction.buyer.auth?.email || null,
+      id: resolvedTransactionBuyerId,
+      name: buyerName,
+      email: buyerEmail,
     });
   });
 
@@ -320,7 +335,7 @@ const adminService = {
           email: user.auth.email,
           phoneNumber: user.phoneNumber,
           role: user.auth.role,
-          verified: user.auth.verified,
+          verified: user.auth.emailVerified,
           isBlocked: user.auth.isBlocked,
           createdAt: user.createdAt
         })),

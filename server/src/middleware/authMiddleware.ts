@@ -51,7 +51,7 @@ export const authenticationMiddeware = async (
   }
 
   try {
-    const decoded = verifyToken(accessToken, process.env.ACCESS_TOKEN_SECRET!);
+    const decoded = verifyToken(accessToken, process.env.ACCESS_TOKEN_SECRET!) as Record<string, any>;
     console.log("✅ Token verified successfully for user:", decoded.email);
     req.user = decoded;
     next();
@@ -72,7 +72,7 @@ export const authenticationMiddeware = async (
       const decodedRefresh = verifyToken(
         refreshToken,
         process.env.REFRESH_TOKEN_SECRET!
-      );
+      ) as Record<string, any>;
 
       const newAccessToken = genAccessToken(decodedRefresh);
 

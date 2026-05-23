@@ -16,6 +16,15 @@ export class UserEntity extends BaseEntity {
   @Column({ name: "phonenumber", length: 50, nullable: true })
   phoneNumber?: string;
 
+  @Column({ name: "pan_number", length: 50, nullable: true })
+  panNumber?: string;
+
+  @Column({ name: "company_registration_doc", type: "text", nullable: true })
+  companyRegistrationDoc?: string;
+
+  @Column({ name: "payment_status", default: false })
+  paymentStatus: boolean;
+
   @Column({ name: "profile_image", type: "text", nullable: true })
   profileImage?: string;
 

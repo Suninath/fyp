@@ -46,8 +46,8 @@ export const setupMockPaymentInterceptor = (axiosInstance: any) => {
   }
 
   axiosInstance.interceptors.response.use(
-    (response) => response,
-    (error) => {
+    (response: any) => response,
+    (error: any) => {
       const config = error.config;
 
       // Mock eSewa endpoints

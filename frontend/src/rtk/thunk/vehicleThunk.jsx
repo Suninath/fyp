@@ -42,6 +42,23 @@ export const getPublicVehicles = createAsyncThunk(
   }
 );
 
+export const getPublicRentalVehicles = createAsyncThunk(
+  "vehicle/getPublicRentalVehicles",
+  async (params = {}, { rejectWithValue }) => {
+    try {
+      const resp = await main_uri.get(`/api/v1/vehicles/public/all`, {
+        params: {
+          ...params,
+          category: "Renting",
+        },
+      });
+      return { data: resp.data?.data, pagination: resp.data?.pagination };
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message);
+    }
+  }
+);
+
 export const getPublicVehicleById = createAsyncThunk(
   "vehicle/getPublicById",
   async (id, { rejectWithValue }) => {

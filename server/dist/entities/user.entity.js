@@ -9,10 +9,16 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.UserEntity = void 0;
+exports.UserEntity = exports.USER_TYPE = void 0;
 const typeorm_1 = require("typeorm");
 const auth_entity_1 = require("./auth.entity");
 const base_entity_1 = require("../utils/base.entity");
+const document_entity_1 = require("./document.entity");
+var USER_TYPE;
+(function (USER_TYPE) {
+    USER_TYPE["INDIVIDUAL"] = "Individual";
+    USER_TYPE["COMPANY"] = "Company";
+})(USER_TYPE || (exports.USER_TYPE = USER_TYPE = {}));
 let UserEntity = class UserEntity extends base_entity_1.BaseEntity {
 };
 exports.UserEntity = UserEntity;
@@ -21,25 +27,9 @@ __decorate([
     __metadata("design:type", String)
 ], UserEntity.prototype, "name", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ name: "store_name", length: 100, nullable: true }),
-    __metadata("design:type", String)
-], UserEntity.prototype, "storeName", void 0);
-__decorate([
     (0, typeorm_1.Column)({ name: "phonenumber", length: 50, nullable: true }),
     __metadata("design:type", String)
 ], UserEntity.prototype, "phoneNumber", void 0);
-__decorate([
-    (0, typeorm_1.Column)({ name: "phone", length: 50, nullable: true }),
-    __metadata("design:type", String)
-], UserEntity.prototype, "phone", void 0);
-__decorate([
-    (0, typeorm_1.Column)({ name: "address", type: "text", nullable: true }),
-    __metadata("design:type", String)
-], UserEntity.prototype, "address", void 0);
-__decorate([
-    (0, typeorm_1.Column)({ name: "profile_image", type: "text", nullable: true }),
-    __metadata("design:type", String)
-], UserEntity.prototype, "profileImage", void 0);
 __decorate([
     (0, typeorm_1.Column)({ name: "pan_number", length: 50, nullable: true }),
     __metadata("design:type", String)
@@ -53,9 +43,29 @@ __decorate([
     __metadata("design:type", Boolean)
 ], UserEntity.prototype, "paymentStatus", void 0);
 __decorate([
+    (0, typeorm_1.Column)({ name: "profile_image", type: "text", nullable: true }),
+    __metadata("design:type", String)
+], UserEntity.prototype, "profileImage", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ name: "is_online", default: false }),
+    __metadata("design:type", Boolean)
+], UserEntity.prototype, "isOnline", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ name: "last_seen", type: "timestamp", nullable: true }),
+    __metadata("design:type", Date)
+], UserEntity.prototype, "lastSeen", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: "enum", enum: USER_TYPE, default: USER_TYPE.INDIVIDUAL }),
+    __metadata("design:type", String)
+], UserEntity.prototype, "userType", void 0);
+__decorate([
     (0, typeorm_1.OneToOne)(() => auth_entity_1.AuthEntity, (auth) => auth.user),
     __metadata("design:type", auth_entity_1.AuthEntity)
 ], UserEntity.prototype, "auth", void 0);
+__decorate([
+    (0, typeorm_1.OneToMany)(() => document_entity_1.DocumentEntity, (document) => document.user, { cascade: true }),
+    __metadata("design:type", Array)
+], UserEntity.prototype, "documents", void 0);
 exports.UserEntity = UserEntity = __decorate([
     (0, typeorm_1.Entity)("users")
 ], UserEntity);

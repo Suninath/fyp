@@ -1,11 +1,13 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useSelector, useDispatch } from "react-redux";
+import { useSearchParams } from "react-router-dom";
 import {
   Search,
   Plus,
   RefreshCw,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   Car,
   Trash2,
   Shield,
@@ -63,10 +65,35 @@ import {
 import { createVehicle } from "../../../rtk/thunk/vehicleThunk";
 
 const ALL = "all";
+const TAB_ALL = "all";
+const TAB_SALE = "sale";
+const TAB_RENT = "rent";
+const PAGE_SIZE = 10;
+
+const getVehicleListingType = (vehicle) => {
+  const listingCategory = `${
+    vehicle?.category || vehicle?.listingType || vehicle?.type || ""
+  }`.toLowerCase();
+  return listingCategory.includes("rent") ? TAB_RENT : TAB_SALE;
+};
+
+const getRentalBookingCount = (vehicle) => {
+  if (Array.isArray(vehicle?.bookings)) {
+    return vehicle.bookings.length;
+  }
+
+  return Number(
+    vehicle?.activeBookings ??
+      vehicle?.totalBookings ??
+      vehicle?.bookingCount ??
+      0,
+  );
+};
 
 const VehicleManagement = () => {
   const dispatch = useDispatch();
-  const { vehicles, vehiclePagination, loading } = useSelector(
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { vehicles, loading } = useSelector(
     (state) => state.admin,
   );
 
@@ -80,6 +107,9 @@ const VehicleManagement = () => {
   const [selectedVehicle, setSelectedVehicle] = useState(null);
   const [isVehicleDetailsOpen, setIsVehicleDetailsOpen] = useState(false);
   const [isCreateVehicleOpen, setIsCreateVehicleOpen] = useState(false);
+  const [isUploadTypeMenuOpen, setIsUploadTypeMenuOpen] = useState(false);
+  const [createPresetType, setCreatePresetType] = useState(null);
+  const [isTabFading, setIsTabFading] = useState(false);
   const [createLoading, setCreateLoading] = useState(false);
   const [createForm, setCreateForm] = useState({
     name: "",
@@ -98,18 +128,24 @@ const VehicleManagement = () => {
     images: [],
   });
 
+  const tabParam = searchParams.get("tab");
+  const activeTab =
+    tabParam === TAB_SALE || tabParam === TAB_RENT ? tabParam : TAB_ALL;
+
   /* ---------------- FETCH VEHICLES ---------------- */
   useEffect(() => {
-    dispatch(
-      getAllVehicles({
-        page,
-        limit: 10,
-        search,
-        brand: brand === ALL ? undefined : brand,
-        color: color === ALL ? undefined : color,
-      }),
-    );
-  }, [page, search, brand, color, dispatch]);
+    dispatch(getAllVehicles({ page: 1, limit: 1000 }));
+  }, [dispatch]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, brand, color, activeTab]);
+
+  useEffect(() => {
+    setIsTabFading(true);
+    const timeoutId = setTimeout(() => setIsTabFading(false), 200);
+    return () => clearTimeout(timeoutId);
+  }, [activeTab]);
 
   /* ---------------- HANDLERS ---------------- */
   const handleSearch = (value) => {
@@ -141,15 +177,26 @@ const VehicleManagement = () => {
   };
 
   const refreshData = () => {
-    dispatch(
-      getAllVehicles({
-        page,
-        limit: 10,
-        search,
-        brand: brand === ALL ? undefined : brand,
-        color: color === ALL ? undefined : color,
-      }),
-    );
+    dispatch(getAllVehicles({ page: 1, limit: 1000 }));
+  };
+
+  const handleTabChange = (tab) => {
+    const nextParams = new URLSearchParams(searchParams);
+    if (tab === TAB_ALL) {
+      nextParams.delete("tab");
+    } else {
+      nextParams.set("tab", tab);
+    }
+    setSearchParams(nextParams);
+    setIsUploadTypeMenuOpen(false);
+  };
+
+  const openCreateDialog = (type = null) => {
+    const category = type === TAB_RENT ? "Renting" : "Buy/Sell";
+    setCreatePresetType(type);
+    setCreateForm((prev) => ({ ...prev, category }));
+    setIsUploadTypeMenuOpen(false);
+    setIsCreateVehicleOpen(true);
   };
 
   const resetCreateForm = () => {
@@ -225,18 +272,99 @@ const VehicleManagement = () => {
     setPage(1);
   };
 
-  /* ---------------- FILTER OPTIONS ---------------- */
-  const uniqueBrands = [
-    ...new Set(
-      vehicles?.map((v) => v.make).filter((v) => v && v.trim() !== "") || [],
-    ),
-  ];
+  const tabScopedVehicles = useMemo(() => {
+    if (!Array.isArray(vehicles)) return [];
+    if (activeTab === TAB_ALL) return vehicles;
+    return vehicles.filter((vehicle) => getVehicleListingType(vehicle) === activeTab);
+  }, [vehicles, activeTab]);
 
-  const uniqueColors = [
-    ...new Set(
-      vehicles?.map((v) => v.color).filter((v) => v && v.trim() !== "") || [],
-    ),
-  ];
+  const tabCounts = useMemo(() => {
+    const saleCount = (vehicles || []).filter(
+      (vehicle) => getVehicleListingType(vehicle) === TAB_SALE,
+    ).length;
+    const rentCount = (vehicles || []).filter(
+      (vehicle) => getVehicleListingType(vehicle) === TAB_RENT,
+    ).length;
+
+    return {
+      [TAB_ALL]: (vehicles || []).length,
+      [TAB_SALE]: saleCount,
+      [TAB_RENT]: rentCount,
+    };
+  }, [vehicles]);
+
+  /* ---------------- FILTER OPTIONS ---------------- */
+  const uniqueBrands = useMemo(
+    () => [
+      ...new Set(
+        tabScopedVehicles
+          ?.map((v) => v.make)
+          .filter((v) => v && v.trim() !== "") || [],
+      ),
+    ],
+    [tabScopedVehicles],
+  );
+
+  const uniqueColors = useMemo(
+    () => [
+      ...new Set(
+        tabScopedVehicles
+          ?.map((v) => v.color)
+          .filter((v) => v && v.trim() !== "") || [],
+      ),
+    ],
+    [tabScopedVehicles],
+  );
+
+  const filteredVehicles = useMemo(() => {
+    const term = search.trim().toLowerCase();
+
+    return tabScopedVehicles.filter((vehicle) => {
+      const matchesSearch =
+        !term ||
+        [
+          vehicle?.name,
+          vehicle?.model,
+          vehicle?.make,
+          vehicle?.uploader?.name,
+          vehicle?.uploadedBy?.name,
+        ]
+          .filter(Boolean)
+          .some((value) => `${value}`.toLowerCase().includes(term));
+
+      const matchesBrand =
+        brand === ALL ||
+        `${vehicle?.make || ""}`.toLowerCase() === brand.toLowerCase();
+
+      const matchesColor =
+        color === ALL ||
+        `${vehicle?.color || ""}`.toLowerCase() === color.toLowerCase();
+
+      return matchesSearch && matchesBrand && matchesColor;
+    });
+  }, [tabScopedVehicles, search, brand, color]);
+
+  const totalFiltered = filteredVehicles.length;
+  const totalPages = Math.max(1, Math.ceil(totalFiltered / PAGE_SIZE));
+  const pageStart = (page - 1) * PAGE_SIZE;
+  const paginatedVehicles = filteredVehicles.slice(pageStart, pageStart + PAGE_SIZE);
+
+  const createDialogTitle =
+    createForm.category === "Renting"
+      ? "Upload Rental Vehicle (Admin)"
+      : "Upload Sale Vehicle (Admin)";
+
+  const createDialogDescription =
+    createForm.category === "Renting"
+      ? "Fill rental details. Price will be used as daily rate (Rs./day)."
+      : "Fill sale listing details for a Buy/Sell vehicle.";
+
+  const uploadButtonLabel =
+    activeTab === TAB_SALE
+      ? "Upload Sale Vehicle"
+      : activeTab === TAB_RENT
+        ? "Upload Rental Vehicle"
+        : "Upload Vehicle";
 
   return (
     <AdminLayout activeTab="vehicles">
@@ -246,6 +374,42 @@ const VehicleManagement = () => {
             <Car size={20} className="text-purple" />
             Vehicle Management
           </CardTitle>
+
+          <div className="flex gap-2 border-b border-slate-200 mb-6 mt-4">
+            <button
+              type="button"
+              onClick={() => handleTabChange(TAB_ALL)}
+              className={`px-5 py-2.5 border-b-2 transition-colors ${
+                activeTab === TAB_ALL
+                  ? "text-emerald-700 font-semibold border-emerald-600"
+                  : "text-slate-600 font-medium border-transparent hover:text-emerald-700 hover:border-emerald-300"
+              }`}
+            >
+              All Vehicles ({tabCounts[TAB_ALL] || 0})
+            </button>
+            <button
+              type="button"
+              onClick={() => handleTabChange(TAB_SALE)}
+              className={`px-5 py-2.5 border-b-2 transition-colors ${
+                activeTab === TAB_SALE
+                  ? "text-emerald-700 font-semibold border-emerald-600"
+                  : "text-slate-600 font-medium border-transparent hover:text-emerald-700 hover:border-emerald-300"
+              }`}
+            >
+              For Sale ({tabCounts[TAB_SALE] || 0})
+            </button>
+            <button
+              type="button"
+              onClick={() => handleTabChange(TAB_RENT)}
+              className={`px-5 py-2.5 border-b-2 transition-colors ${
+                activeTab === TAB_RENT
+                  ? "text-emerald-700 font-semibold border-emerald-600"
+                  : "text-slate-600 font-medium border-transparent hover:text-emerald-700 hover:border-emerald-300"
+              }`}
+            >
+              For Rent ({tabCounts[TAB_RENT] || 0})
+            </button>
+          </div>
 
           <div className="flex flex-wrap gap-4 mt-4">
             {/* SEARCH */}
@@ -302,17 +466,45 @@ const VehicleManagement = () => {
               <RefreshCw size={16} />
             </Button>
 
-            <Button onClick={() => setIsCreateVehicleOpen(true)}>
-              <Plus size={16} className="mr-1" />
-              Upload Vehicle
-            </Button>
+            {activeTab === TAB_ALL ? (
+              <div className="relative">
+                <Button onClick={() => setIsUploadTypeMenuOpen((prev) => !prev)}>
+                  <Plus size={16} className="mr-1" />
+                  {uploadButtonLabel}
+                  <ChevronDown size={16} className="ml-2" />
+                </Button>
+
+                {isUploadTypeMenuOpen && (
+                  <div className="absolute right-0 top-full z-20 mt-2 w-56 rounded-lg border border-slate-200 bg-white p-2 shadow-lg">
+                    <button
+                      type="button"
+                      onClick={() => openCreateDialog(TAB_SALE)}
+                      className="w-full rounded-md px-3 py-2 text-left text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100"
+                    >
+                      + Upload Sale Vehicle
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => openCreateDialog(TAB_RENT)}
+                      className="w-full rounded-md px-3 py-2 text-left text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100"
+                    >
+                      + Upload Rental Vehicle
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <Button onClick={() => openCreateDialog(activeTab)}>
+                <Plus size={16} className="mr-1" />
+                + {activeTab === TAB_RENT ? "Upload Rental Vehicle" : "Upload Sale Vehicle"}
+              </Button>
+            )}
           </div>
         </CardHeader>
 
         <CardContent>
           <div className="mb-4 text-sm text-gray-600">
-            Showing {vehicles?.length || 0} of{" "}
-            {vehiclePagination?.totalItems || 0} vehicles
+            Showing {paginatedVehicles.length || 0} of {totalFiltered} vehicles
           </div>
 
           {loading ? (
@@ -325,15 +517,18 @@ const VehicleManagement = () => {
               ))}
             </div>
           ) : (
-            <Table>
+            <div className={`transition-opacity duration-200 ${isTabFading ? "opacity-0" : "opacity-100"}`}>
+              <Table>
               <TableHeader>
                 <TableRow className="bg-gray-100">
                   <TableHead>Model</TableHead>
                   <TableHead>Brand</TableHead>
                   <TableHead>Year</TableHead>
                   <TableHead>Color</TableHead>
-                  <TableHead>Price</TableHead>
+                  <TableHead>{activeTab === TAB_RENT ? "Price/Day" : "Price"}</TableHead>
+                  {activeTab === TAB_ALL && <TableHead>Type</TableHead>}
                   <TableHead>Owner</TableHead>
+                  {activeTab === TAB_RENT && <TableHead>Bookings</TableHead>}
                   <TableHead>Status</TableHead>
                   <TableHead>Created</TableHead>
                   <TableHead>Actions</TableHead>
@@ -341,7 +536,7 @@ const VehicleManagement = () => {
               </TableHeader>
 
               <TableBody>
-                {vehicles?.map((vehicle) => (
+                {paginatedVehicles?.map((vehicle) => (
                   <TableRow key={vehicle.id} className="hover:bg-gray-50">
                     <TableCell className="font-medium">
                       {vehicle.model}
@@ -357,8 +552,29 @@ const VehicleManagement = () => {
                       />
                       {vehicle.color}
                     </TableCell>
-                    <TableCell>Rs. {vehicle.price?.toLocaleString('en-IN')}</TableCell>
-                    <TableCell>{vehicle.uploader?.name || "N/A"}</TableCell>
+                    <TableCell>
+                      Rs. {vehicle.price?.toLocaleString("en-IN")}
+                      {activeTab === TAB_RENT ? " / day" : ""}
+                    </TableCell>
+                    {activeTab === TAB_ALL && (
+                      <TableCell>
+                        <Badge
+                          className={
+                            getVehicleListingType(vehicle) === TAB_RENT
+                              ? "bg-amber-100 text-amber-700"
+                              : "bg-emerald-100 text-emerald-700"
+                          }
+                        >
+                          {getVehicleListingType(vehicle) === TAB_RENT
+                            ? "For Rent"
+                            : "For Sale"}
+                        </Badge>
+                      </TableCell>
+                    )}
+                    <TableCell>{vehicle.uploader?.name || vehicle.uploadedBy?.name || "N/A"}</TableCell>
+                    {activeTab === TAB_RENT && (
+                      <TableCell>{getRentalBookingCount(vehicle)}</TableCell>
+                    )}
                     <TableCell>
                       <Badge
                         className={
@@ -422,14 +638,15 @@ const VehicleManagement = () => {
                   </TableRow>
                 ))}
               </TableBody>
-            </Table>
+              </Table>
+            </div>
           )}
 
           {/* PAGINATION */}
-          {vehiclePagination?.totalPages > 0 && (
+          {totalPages > 0 && (
             <div className="flex justify-between items-center mt-6">
               <span className="text-sm text-gray-600">
-                Page {page} of {vehiclePagination.totalPages}
+                Page {page} of {totalPages}
               </span>
               <div className="flex gap-2">
                 <Button
@@ -441,7 +658,7 @@ const VehicleManagement = () => {
                 </Button>
                 <Button
                   variant="outline"
-                  disabled={page === vehiclePagination.totalPages}
+                  disabled={page === totalPages}
                   onClick={() => setPage(page + 1)}
                 >
                   Next <ChevronRight size={16} />
@@ -458,6 +675,7 @@ const VehicleManagement = () => {
         onOpenChange={(open) => {
           setIsCreateVehicleOpen(open);
           if (!open) {
+            setCreatePresetType(null);
             resetCreateForm();
           }
         }}
@@ -467,10 +685,10 @@ const VehicleManagement = () => {
             <DialogHeader className="p-0 space-y-2">
               <DialogTitle className="text-white text-xl sm:text-2xl font-bold flex items-center gap-2">
                 <Plus size={20} />
-                Upload Vehicle (Admin)
+                {createDialogTitle}
               </DialogTitle>
               <DialogDescription className="text-gray-100 mt-1 text-sm sm:text-base">
-                Fill in vehicle details and choose listing type: Buy/Sell or Renting.
+                {createDialogDescription}
               </DialogDescription>
             </DialogHeader>
           </div>
@@ -527,7 +745,9 @@ const VehicleManagement = () => {
                 </div>
 
                 <div className="space-y-3">
-                  <Label htmlFor="admin-price" className="font-semibold text-gray-900">Price (Rs.) *</Label>
+                  <Label htmlFor="admin-price" className="font-semibold text-gray-900">
+                    {createForm.category === "Renting" ? "Price Per Day (Rs.) *" : "Price (Rs.) *"}
+                  </Label>
                   <Input
                     id="admin-price"
                     type="number"
@@ -542,9 +762,13 @@ const VehicleManagement = () => {
                   <Label htmlFor="admin-category" className="font-semibold text-gray-900">Listing Type *</Label>
                   <Select
                     value={createForm.category}
-                    onValueChange={(value) => handleCreateInputChange("category", value)}
+                    onValueChange={(value) => {
+                      if (!createPresetType) {
+                        handleCreateInputChange("category", value);
+                      }
+                    }}
                   >
-                    <SelectTrigger id="admin-category" className="border-2 border-gray-300 focus:border-purple focus:ring-purple bg-white">
+                    <SelectTrigger id="admin-category" className="border-2 border-gray-300 focus:border-purple focus:ring-purple bg-white" disabled={!!createPresetType}>
                       <SelectValue placeholder="Select listing type" />
                     </SelectTrigger>
                     <SelectContent className="bg-white">
@@ -694,7 +918,7 @@ const VehicleManagement = () => {
                   disabled={createLoading}
                   className="bg-gradient-to-r from-purple to-blue hover:from-purple hover:to-blue text-white shadow-md hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {createLoading ? "Uploading..." : "Upload Vehicle"}
+                  {createLoading ? "Uploading..." : createForm.category === "Renting" ? "Upload Rental Vehicle" : "Upload Sale Vehicle"}
                 </Button>
               </div>
             </form>

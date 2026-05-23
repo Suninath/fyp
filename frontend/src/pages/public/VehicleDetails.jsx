@@ -152,14 +152,6 @@ const VehicleDetails = () => {
                                 </p>
                             </div>
 
-                            {/* Support Info */}
-                            <div className="bg-gray-50 rounded-lg md:rounded-xl p-3 md:p-4 mb-4 md:mb-6 flex items-start md:items-center gap-2 md:gap-4 border border-gray-100">
-                                <div className="flex-1 overflow-hidden min-w-0">
-                                    <p className="font-bold text-gray-900 truncate text-sm md:text-base">Second Auto Gear Admin Support</p>
-                                    <p className="text-xs text-gray-500 truncate">For privacy, seller details are shared only through admin assistance.</p>
-                                </div>
-                            </div>
-
                             {/* Action Buttons */}
                             <div className="space-y-2 md:space-y-3">
                                 {/* Only show booking for rental vehicles */}
@@ -210,7 +202,7 @@ const VehicleDetails = () => {
                                         }}
                                     >
                                         <MessageCircle className="w-4 h-4 md:w-5 md:h-5 mr-1 md:mr-2" />
-                                        Contact Admin
+                                        Contact
                                     </Button>
                                 )}
                                 <Button 

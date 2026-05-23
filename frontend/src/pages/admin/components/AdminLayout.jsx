@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
 import {
@@ -8,19 +8,24 @@ import {
   LogOut,
   FileText,
   UserCheck,
-  Settings,
   ChevronRight,
   Calendar,
   CreditCard,
   MessageCircle,
   PieChart
 } from "lucide-react";
-import { Button } from "../../../ui/ui/button";
 import { userLogout } from "../../../rtk/thunk/authThunk";
 import NotificationBell from "../../../components/common/NotificationBell";
 import { getConversations } from "../../../rtk/thunk/chatThunk";
 import { Badge } from "../../../ui/ui/badge";
 import BrandMark from "../../../components/common/BrandMark";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "../../../ui/ui/dialog";
 
 const AdminLayout = ({ children, activeTab }) => {
   const navigate = useNavigate();
@@ -28,6 +33,7 @@ const AdminLayout = ({ children, activeTab }) => {
   const dispatch = useDispatch();
   const { role, name, email } = useSelector((state) => state.auth);
   const { conversations = [] } = useSelector((state) => state.chat);
+  const [isLogoutDialogOpen, setIsLogoutDialogOpen] = useState(false);
 
   const usersWithUnreadMessages = conversations.filter((conv) => conv?.unreadCount > 0).length;
 
@@ -37,10 +43,10 @@ const AdminLayout = ({ children, activeTab }) => {
     }
   }, [dispatch, role, location.pathname]);
 
-  const handleLogout = () => {
-    dispatch(userLogout()).then(() => {
-      navigate("/login");
-    });
+  const handleLogout = async () => {
+    await dispatch(userLogout());
+    setIsLogoutDialogOpen(false);
+    navigate("/login");
   };
 
   const menuItems = [
@@ -115,14 +121,6 @@ const AdminLayout = ({ children, activeTab }) => {
               <p className="text-xs text-gray-400 truncate">{email || 'admin@secondautogear.com'}</p>
             </div>
           </div>
-          <Button
-            variant="outline"
-            onClick={handleLogout}
-            className="w-full border-gray-700 bg-gray-800/50 text-gray-300 hover:bg-red hover:border-red hover:text-white transition-all"
-          >
-            <LogOut size={16} className="mr-2" />
-            Sign Out
-          </Button>
         </div>
       </aside>
 
@@ -138,7 +136,7 @@ const AdminLayout = ({ children, activeTab }) => {
               {menuItems.find(m => isActive(m.id))?.description || 'System overview & management'}
             </p>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             <button
               onClick={() => navigate("/admin/messages")}
               className="relative p-2 text-gray-500 hover:text-purple hover:bg-light-bg rounded-lg transition"
@@ -152,16 +150,22 @@ const AdminLayout = ({ children, activeTab }) => {
               )}
             </button>
             <NotificationBell />
-            <button className="p-2 text-gray-400 hover:text-purple hover:bg-light-bg rounded-lg transition">
-              <Settings size={20} />
-            </button>
-            <div className="w-px h-8 bg-gray-200"></div>
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-full bg-purple flex items-center justify-center text-white text-sm font-bold">
                 {(name || 'A').charAt(0).toUpperCase()}
               </div>
               <span className="text-sm font-medium text-gray-700 capitalize">{role}</span>
             </div>
+            <div className="h-8 border-l border-slate-200 mx-2" />
+            <button
+              type="button"
+              onClick={() => setIsLogoutDialogOpen(true)}
+              title="Logout"
+              className="flex items-center gap-2 rounded-lg border-2 border-red-200 px-4 py-2 text-sm font-semibold text-red-600 transition-all hover:border-red-300 hover:bg-red-50 hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-red-200"
+            >
+              <LogOut className="w-4 h-4" />
+              <span className="hidden md:inline">Logout</span>
+            </button>
           </div>
         </header>
 
@@ -170,6 +174,34 @@ const AdminLayout = ({ children, activeTab }) => {
           {children}
         </main>
       </div>
+
+      <Dialog open={isLogoutDialogOpen} onOpenChange={setIsLogoutDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Are you sure you want to logout?</DialogTitle>
+            <DialogDescription>
+              You will be signed out from the admin panel and redirected to the login page.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="mt-4 flex justify-end gap-3">
+            <button
+              type="button"
+              onClick={() => setIsLogoutDialogOpen(false)}
+              className="rounded-lg bg-slate-100 px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-200"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-red-700"
+            >
+              Confirm
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

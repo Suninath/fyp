@@ -34,6 +34,12 @@ export class VehicleEntity extends BaseEntity {
   transmission?: string;
 
   @Column({ length: 50, nullable: true })
+  bodyType?: string;
+
+  @Column({ type: "int", nullable: true })
+  ownerCount?: number;
+
+  @Column({ length: 50, nullable: true })
   color?: string;
 
   @Column({ length: 100, nullable: true })

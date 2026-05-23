@@ -1,6 +1,6 @@
-import React from "react";
+import React, { useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { useSelector } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { Button } from "../../ui/ui/button";
 import { Card, CardContent } from "../../ui/ui/card";
 import {
@@ -8,15 +8,65 @@ import {
   Car,
   CheckCircle2,
   Clock3,
+  ChevronLeft,
+  ChevronRight,
   MapPin,
   PhoneCall,
 } from "lucide-react";
+import { getPublicVehicles, getPublicRentalVehicles } from "../../rtk/thunk/vehicleThunk";
 import Navigation from "../../components/common/Navigation";
 import Footer from "../../components/common/Footer";
 
+const PopularListingCard = ({ vehicle, variant = "sale", navigate, getVehicleImageUrl, handleImageError }) => {
+  const imageUrl = getVehicleImageUrl(vehicle.images?.[0]);
+  const isRental = variant === "rental";
+
+  return (
+    <article className="w-[280px] sm:w-[320px] flex-none snap-start h-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-shadow hover:shadow-md">
+      <div className="group flex h-full w-full flex-col text-left">
+        <div className="relative h-52 sm:h-56 overflow-hidden bg-gradient-to-b from-slate-100 to-slate-200 shadow-inner">
+          <img
+            src={imageUrl}
+            alt={vehicle.name}
+            onError={handleImageError}
+            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+          />
+        </div>
+
+        <div className="flex flex-1 flex-col space-y-2 p-4">
+          <h3 className="truncate text-lg font-bold leading-tight text-slate-900">
+            {vehicle.make} {vehicle.model}
+          </h3>
+
+          <p className="text-sm text-slate-500 min-h-[20px]">
+            {vehicle.year || "N/A"} • {vehicle.fuelType || "N/A"} • {vehicle.transmission || "N/A"}
+          </p>
+
+          <p className="text-3xl font-extrabold text-primary">
+            Rs. {Number(vehicle.price || 0).toLocaleString("en-IN")}
+            {isRental ? " / day" : ""}
+          </p>
+
+          <Button
+            type="button"
+            className="mt-auto h-11 w-full rounded-lg border-2 border-primary bg-white text-sm font-semibold text-primary transition-colors hover:bg-primary hover:text-white"
+            onClick={() => navigate(`/vehicles/public/${vehicle.id}`)}
+          >
+            {isRental ? "Rent Now" : "View Details"}
+          </Button>
+        </div>
+      </div>
+    </article>
+  );
+};
+
 const Home = () => {
+  const dispatch = useDispatch();
   const navigate = useNavigate();
   const { authenticate, role } = useSelector((state) => state.auth);
+  const { publicVehicles, publicRentalVehicles } = useSelector((state) => state.vehicle);
+  const popularCarsRef = useRef(null);
+  const popularRentalsRef = useRef(null);
   const fallbackCarImage =
     "https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?auto=format&fit=crop&w=1200&q=80";
 
@@ -25,83 +75,31 @@ const Home = () => {
     event.currentTarget.src = fallbackCarImage;
   };
 
+  const getVehicleImageUrl = (path) => {
+    if (!path) return fallbackCarImage;
+    if (path.startsWith("http") || path.startsWith("data:")) return path;
+    const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000";
+    const cleanPath = path.startsWith("/") ? path.slice(1) : path;
+    return `${backendUrl}/${cleanPath.replace(/\\/g, "/")}`;
+  };
+
+  const scrollPopularList = (targetRef, direction) => {
+    targetRef.current?.scrollBy({
+      left: direction * 320,
+      behavior: "smooth",
+    });
+  };
+
+  useEffect(() => {
+    dispatch(getPublicVehicles({ limit: 100, page: 1, category: "Buy/Sell" }));
+    dispatch(getPublicRentalVehicles({ limit: 100, page: 1 }));
+  }, [dispatch]);
+
   const stats = [
     { value: "2,800+", label: "Active Listings" },
     { value: "1,200+", label: "Completed Bookings" },
     { value: "350+", label: "Verified Sellers" },
     { value: "4.8/5", label: "Average User Feedback" },
-  ];
-
-  const featuredCars = [
-    {
-      name: "Hyundai Creta",
-      type: "For Sale",
-      location: "Kathmandu",
-      price: "Rs 28,50,000",
-      image:
-        "https://images.unsplash.com/photo-1542282088-fe8426682b8f?auto=format&fit=crop&w=1200&q=80",
-    },
-    {
-      name: "Suzuki Swift",
-      type: "For Rent",
-      location: "Pokhara",
-      price: "Rs 4,000/day",
-      image:
-        "https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?auto=format&fit=crop&w=1200&q=80",
-    },
-    {
-      name: "BYD Dolphin",
-      type: "For Sale",
-      location: "Lalitpur",
-      price: "Rs 41,00,000",
-      image:
-        "https://images.unsplash.com/photo-1550355291-bbee04a92027?auto=format&fit=crop&w=1200&q=80",
-    },
-  ];
-
-  const marketplaceCars = [
-    {
-      label: "SUV EV",
-      meta: "Electric + long-range options",
-      query: "suv",
-      image:
-        "https://images.unsplash.com/photo-1619767886558-efdc259cde1a?auto=format&fit=crop&w=1200&q=80",
-    },
-    {
-      label: "SUV 5 Seater",
-      meta: "Family and road-trip ready",
-      query: "suv",
-      image:
-        "https://images.unsplash.com/photo-1606664515524-ed2f786a0bd6?auto=format&fit=crop&w=1200&q=80",
-    },
-    {
-      label: "Hatchback",
-      meta: "City-friendly daily drive",
-      query: "hatchback",
-      image:
-        "https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=1200&q=80",
-    },
-    {
-      label: "4WD Pickup",
-      meta: "Utility and off-road routes",
-      query: "pickup",
-      image:
-        "https://images.unsplash.com/photo-1552519507-da3b142c6e3d?auto=format&fit=crop&w=1200&q=80",
-    },
-    {
-      label: "Sedan",
-      meta: "Comfort commute and highway",
-      query: "sedan",
-      image:
-        "https://images.unsplash.com/photo-1550355291-bbee04a92027?auto=format&fit=crop&w=1200&q=80",
-    },
-    {
-      label: "Premium",
-      meta: "High-end cars for special trips",
-      query: "premium",
-      image:
-        "https://images.unsplash.com/photo-1494976388531-d1058494cdd8?auto=format&fit=crop&w=1200&q=80",
-    },
   ];
 
   const steps = [
@@ -125,8 +123,49 @@ const Home = () => {
       : "/vehicles/browse"
     : "/signup";
 
+  const addFirstListingTarget = authenticate ? "/user/create-vehicle" : "/signup";
+
+  const getRankingScore = (vehicle) => {
+    const popularity =
+      Number(vehicle?.bookingCount || 0) +
+      Number(vehicle?.totalBookings || 0) +
+      Number(vehicle?.viewCount || 0) +
+      Number(vehicle?.views || 0);
+
+    const createdAtScore = vehicle?.createdAt ? new Date(vehicle.createdAt).getTime() : 0;
+    return popularity > 0 ? popularity : createdAtScore;
+  };
+
+  const rankedSaleVehicles = useMemo(
+    () => [...publicVehicles].sort((a, b) => getRankingScore(b) - getRankingScore(a)),
+    [publicVehicles],
+  );
+
+  const rankedRentalVehicles = useMemo(
+    () => [...publicRentalVehicles].sort((a, b) => getRankingScore(b) - getRankingScore(a)),
+    [publicRentalVehicles],
+  );
+
+  const heroSaleVehicles = rankedSaleVehicles.slice(0, 2);
+  const heroRentalVehicles = rankedRentalVehicles.slice(0, 1);
+
+  const heroTopCards = [
+    heroSaleVehicles[0] ? { vehicle: heroSaleVehicles[0], type: "For Sale", isRental: false } : null,
+    heroRentalVehicles[0] ? { vehicle: heroRentalVehicles[0], type: "For Rent", isRental: true } : null,
+  ].filter(Boolean);
+
+  const featuredHeroVehicle = [...heroSaleVehicles, ...heroRentalVehicles].sort(
+    (a, b) => Number(b?.price || 0) - Number(a?.price || 0),
+  )[0] || null;
+
+  const hasHeroListings = heroTopCards.length > 0 || !!featuredHeroVehicle;
+
+  const popularCars = publicVehicles.slice(0, 8);
+  const popularRentals = publicRentalVehicles.slice(0, 10);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50/30 text-slate-900">
+      <style>{`.scroll-container::-webkit-scrollbar { display: none; }`}</style>
       <Navigation />
 
       <section className="relative overflow-hidden border-b border-slate-200/80 bg-gradient-to-b from-purple/5 via-blue/5 to-transparent">
@@ -178,54 +217,76 @@ const Home = () => {
               <span className="rounded-full bg-purple/10 px-3 py-1 text-xs font-semibold text-purple">Buy • Sell • Rent</span>
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-2">
-              {featuredCars.slice(0, 2).map((car) => (
-                <button
-                  key={car.name}
-                  type="button"
-                  onClick={() => navigate("/vehicles/browse")}
-                  className="group relative h-48 overflow-hidden rounded-xl"
-                >
-                  <img
-                    src={car.image}
-                    alt={car.name}
-                    onError={handleImageError}
-                    className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent" />
-                  <div className="absolute left-3 right-3 bottom-3 text-left text-white">
-                    <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold">
-                      <span className="rounded-full bg-white/20 px-2 py-0.5">{car.type}</span>
-                      <span className="rounded-full bg-white/20 px-2 py-0.5">{car.location}</span>
-                    </div>
-                    <p className="text-base font-bold leading-tight">{car.name}</p>
-                    <p className="mt-1 text-sm font-semibold text-purple-100">{car.price}</p>
-                  </div>
-                </button>
-              ))}
-            </div>
-
-            <button
-              type="button"
-              onClick={() => navigate("/vehicles/browse")}
-              className="group relative mt-3 h-40 w-full overflow-hidden rounded-xl"
-            >
-              <img
-                src={featuredCars[2].image}
-                alt={featuredCars[2].name}
-                onError={handleImageError}
-                className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-              />
-              <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/35 to-black/10" />
-              <div className="absolute inset-0 flex items-end justify-between p-4 text-white">
-                <div className="text-left">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-purple-100">Featured EV</p>
-                  <p className="text-lg font-bold">{featuredCars[2].name}</p>
-                  <p className="text-sm text-purple-100">{featuredCars[2].price}</p>
+            {hasHeroListings ? (
+              <>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {heroTopCards.map((item) => (
+                    <button
+                      key={`hero-${item.vehicle.id}`}
+                      type="button"
+                      onClick={() => navigate(`/vehicles/public/${item.vehicle.id}`)}
+                      className="group relative h-48 overflow-hidden rounded-xl"
+                    >
+                      <img
+                        src={getVehicleImageUrl(item.vehicle.images?.[0])}
+                        alt={item.vehicle.name}
+                        onError={handleImageError}
+                        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent" />
+                      <div className="absolute left-3 right-3 bottom-3 text-left text-white">
+                        <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold">
+                          <span className="rounded-full bg-white/20 px-2 py-0.5">{item.type}</span>
+                          <span className="rounded-full bg-white/20 px-2 py-0.5">{item.vehicle.location || "Nepal"}</span>
+                        </div>
+                        <p className="text-base font-bold leading-tight line-clamp-1">{item.vehicle.make} {item.vehicle.model}</p>
+                        <p className="mt-1 text-sm font-semibold text-purple-100">
+                          Rs. {Number(item.vehicle.price || 0).toLocaleString("en-IN")}
+                          {item.isRental ? " / day" : ""}
+                        </p>
+                      </div>
+                    </button>
+                  ))}
                 </div>
-                <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-semibold">View listing</span>
+
+                {featuredHeroVehicle && (
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/vehicles/public/${featuredHeroVehicle.id}`)}
+                    className="group relative mt-3 h-40 w-full overflow-hidden rounded-xl"
+                  >
+                    <img
+                      src={getVehicleImageUrl(featuredHeroVehicle.images?.[0])}
+                      alt={featuredHeroVehicle.name}
+                      onError={handleImageError}
+                      className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/35 to-black/10" />
+                    <div className="absolute inset-0 flex items-end justify-between p-4 text-white">
+                      <div className="text-left">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-purple-100">Featured</p>
+                        <p className="text-lg font-bold line-clamp-1">{featuredHeroVehicle.make} {featuredHeroVehicle.model}</p>
+                        <p className="text-sm text-purple-100">
+                          Rs. {Number(featuredHeroVehicle.price || 0).toLocaleString("en-IN")}
+                        </p>
+                      </div>
+                      <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-semibold">View listing</span>
+                    </div>
+                  </button>
+                )}
+              </>
+            ) : (
+              <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center">
+                <p className="text-base font-semibold text-slate-900">No listings yet</p>
+                <p className="mt-1 text-sm text-slate-600">Be the first to add a vehicle to the marketplace.</p>
+                <Button
+                  className="mt-4 h-10 rounded-md bg-gradient-to-r from-purple to-blue px-5 text-sm font-semibold text-white hover:from-purple/90 hover:to-blue/90"
+                  onClick={() => navigate(addFirstListingTarget)}
+                >
+                  Add the first vehicle
+                </Button>
               </div>
-            </button>
+            )}
 
             <Button
               className="mt-4 h-11 w-full rounded-md bg-gradient-to-r from-purple to-blue text-sm font-semibold text-white hover:from-purple/90 hover:to-blue/90"
@@ -258,54 +319,149 @@ const Home = () => {
         </div>
       </section>
 
-      <section className=" bg-white py-14 sm:py-16">
+      <section className="bg-white py-8 md:py-12">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
+          <div className="mb-8 flex flex-col gap-3 sm:mb-10 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-purple">Vehicle Categories</p>
-              <h2 className="mt-2 text-3xl font-extrabold leading-tight text-slate-900 sm:text-4xl">
-                Nepal&apos;s largest
-                <span className="ml-2 rounded bg-emerald-400 px-2 py-0.5 text-white">USED CAR</span>
-                <span className="block">marketplace</span>
+              <h2 className="text-3xl font-extrabold text-slate-900 sm:text-4xl lg:text-5xl">
+                Popular Cars
               </h2>
-              <p className="mt-2 text-sm text-slate-600 sm:text-base">
-                Browse by category and quickly jump into listings that fit your route and budget.
+              <p className="mt-2 max-w-2xl text-sm text-slate-600 sm:text-base">
+                Hand-picked second-hand cars trending right now in Nepal
               </p>
+              <button
+                type="button"
+                onClick={() => navigate("/vehicles/browse")}
+                className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-primary transition-colors hover:text-primary/80"
+              >
+                View all cars
+                <ArrowRight className="h-4 w-4" />
+              </button>
             </div>
-            <Button
-              variant="outline"
-              className="w-fit border-slate-300 text-slate-700 hover:bg-slate-100"
-              onClick={() => navigate("/vehicles/browse")}
-            >
-              View all vehicles
-            </Button>
+
+            <div className="hidden gap-2 md:flex">
+              <button
+                type="button"
+                onClick={() => scrollPopularList(popularCarsRef, -1)}
+                className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-sm transition-colors hover:border-primary hover:text-primary"
+                aria-label="Scroll popular cars left"
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => scrollPopularList(popularCarsRef, 1)}
+                className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-sm transition-colors hover:border-primary hover:text-primary"
+                aria-label="Scroll popular cars right"
+              >
+                <ChevronRight className="h-5 w-5" />
+              </button>
+            </div>
           </div>
 
-          <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {marketplaceCars.map((car) => (
-              <button
-                key={car.label}
-                type="button"
-                onClick={() => navigate(`/vehicles/browse?category=${car.query}`)}
-                className="group relative aspect-[16/10] overflow-hidden rounded-xl border border-slate-200"
-              >
-                <img
-                  src={car.image}
-                  alt={car.label}
-                  onError={handleImageError}
-                  className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
-                <div className="absolute inset-x-3 bottom-3 flex items-end justify-between gap-3">
-                  <div className="text-left text-white">
-                    <p className="text-sm font-bold">{car.label}</p>
-                    <p className="text-xs text-slate-200">{car.meta}</p>
+          <div className="relative">
+            <div
+              ref={popularCarsRef}
+              className="scroll-container flex items-stretch gap-4 overflow-x-auto snap-x snap-mandatory pb-4 scroll-smooth"
+              style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+            >
+              {popularCars.length > 0 ? (
+                <>
+                  {popularCars.map((vehicle) => {
+                    return (
+                      <PopularListingCard
+                        key={vehicle.id}
+                        vehicle={vehicle}
+                        variant="sale"
+                        navigate={navigate}
+                        getVehicleImageUrl={getVehicleImageUrl}
+                        handleImageError={handleImageError}
+                      />
+                    );
+                  })}
+                </>
+              ) : (
+                <article className="min-w-[280px] snap-start overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm sm:min-w-[320px]">
+                  <div className="aspect-[4/3] animate-pulse bg-slate-200" />
+                  <div className="p-4 sm:p-5">
+                    <div className="h-5 w-2/3 animate-pulse rounded bg-slate-200" />
+                    <div className="mt-3 h-3 w-1/2 animate-pulse rounded bg-slate-200" />
+                    <div className="mt-4 h-6 w-1/3 animate-pulse rounded bg-slate-200" />
+                    <div className="mt-4 h-11 w-full animate-pulse rounded-lg bg-slate-200" />
                   </div>
-                  <span className="rounded-full bg-white/20 px-2.5 py-1 text-[11px] font-semibold text-white">Explore</span>
-                </div>
-              </button>
-            ))}
+                </article>
+              )}
+            </div>
           </div>
+        </div>
+      </section>
+
+      <section className="bg-white py-8 md:py-12">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="mb-8 flex flex-col gap-3 sm:mb-10 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <h2 className="text-3xl font-extrabold text-slate-900 sm:text-4xl lg:text-5xl">
+                Popular Rentals
+              </h2>
+              <p className="mt-2 max-w-2xl text-sm text-slate-600 sm:text-base">
+                Top-rated rental vehicles available across Nepal
+              </p>
+              <button
+                type="button"
+                onClick={() => navigate("/vehicles/browse?type=rent")}
+                className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-primary transition-colors hover:text-primary/80"
+              >
+                View all rentals
+                <ArrowRight className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="hidden gap-2 md:flex">
+              <button
+                type="button"
+                onClick={() => scrollPopularList(popularRentalsRef, -1)}
+                className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-sm transition-colors hover:border-primary hover:text-primary"
+                aria-label="Scroll popular rentals left"
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => scrollPopularList(popularRentalsRef, 1)}
+                className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-sm transition-colors hover:border-primary hover:text-primary"
+                aria-label="Scroll popular rentals right"
+              >
+                <ChevronRight className="h-5 w-5" />
+              </button>
+            </div>
+          </div>
+
+          {popularRentals.length > 0 ? (
+            <div className="relative">
+              <div
+                ref={popularRentalsRef}
+                className="scroll-container flex items-stretch gap-4 overflow-x-auto snap-x snap-mandatory pb-4 scroll-smooth"
+                style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+              >
+                {popularRentals.map((vehicle) => (
+                  <PopularListingCard
+                    key={vehicle.id}
+                    vehicle={vehicle}
+                    variant="rental"
+                    navigate={navigate}
+                    getVehicleImageUrl={getVehicleImageUrl}
+                    handleImageError={handleImageError}
+                  />
+                ))}
+
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-6 py-10 text-center">
+              <p className="text-base font-semibold text-slate-800">No rentals available right now</p>
+              <p className="mt-2 text-sm text-slate-600">Check back soon for newly listed rental vehicles.</p>
+            </div>
+          )}
         </div>
       </section>
 

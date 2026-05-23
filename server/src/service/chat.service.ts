@@ -120,7 +120,7 @@ export class ChatService {
 
     const roleByUserId = new Map<number, USER_ROLE>();
     participants.forEach((participant) => {
-      if (participant.auth?.role) {
+      if (participant.auth?.role && participant.id != null) {
         roleByUserId.set(participant.id, participant.auth.role);
       }
     });
@@ -134,7 +134,7 @@ export class ChatService {
           return true;
         }
 
-        return roleByUserId.get(otherUser.id) === USER_ROLE.ADMIN;
+        return otherUser.id != null && roleByUserId.get(otherUser.id) === USER_ROLE.ADMIN;
       })
       .map((conv) => {
         const otherUser = conv.user1.id === userId ? conv.user2 : conv.user1;
@@ -180,7 +180,12 @@ export class ChatService {
       throw new Error("Vehicle not found");
     }
 
-    const conversation = await this.getOrCreateConversation(interestedUserId, primaryAdmin.id);
+    const primaryAdminId = primaryAdmin.id;
+    if (primaryAdminId == null) {
+      throw new Error("No admin account available");
+    }
+
+    const conversation = await this.getOrCreateConversation(interestedUserId, primaryAdminId);
 
     const existingMessageCount = await this.messageRepo.count({
       where: { conversation: { id: conversation.id } },
@@ -192,7 +197,7 @@ export class ChatService {
 
     // Send the auto interest message only once per user-admin conversation.
     if (existingMessageCount === 0) {
-      await this.sendMessage(interestedUserId, primaryAdmin.id, interestMessage);
+      await this.sendMessage(interestedUserId, primaryAdminId, interestMessage);
 
       await notificationService.createForAdmins({
         type: NOTIFICATION_TYPE.SYSTEM,
@@ -210,7 +215,7 @@ export class ChatService {
     return {
       conversationId: conversation.id,
       admin: {
-        id: primaryAdmin.id,
+        id: primaryAdminId,
         name: primaryAdmin.name || "Admin Support",
         profileImage: primaryAdmin.profileImage,
         isOnline: primaryAdmin.isOnline,

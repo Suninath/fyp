@@ -48,13 +48,6 @@ const authService = {
                         message: "Invalid email or password",
                     };
                 }
-                if (!auth.verified) {
-                    return {
-                        status: false,
-                        code: 400,
-                        message: "Please verify your account",
-                    };
-                }
                 const isPasswordValid = yield (0, passwordHelper_1.comparePassword)(password, auth.password);
                 if (!isPasswordValid) {
                     return {
@@ -85,7 +78,7 @@ const authService = {
                     status: true,
                     code: 200,
                     message: "Login successful",
-                    data: { role: auth.role },
+                    data: { role: auth.role, accessToken },
                 };
             }
             catch (error) {
@@ -123,7 +116,8 @@ const authService = {
                     email,
                     password: hashedPassword,
                     role: enums_1.USER_ROLE.USER,
-                    verified: false,
+                    emailVerified: false,
+                    accountVerified: false,
                     user,
                 });
                 yield authRepository.save(auth);
@@ -162,8 +156,8 @@ const authService = {
                 if (!auth || !auth.user) {
                     return { status: false, code: 404, message: "User not found" };
                 }
-                if (auth.verified) {
-                    return { status: false, code: 400, message: "Already verified" };
+                if (auth.emailVerified) {
+                    return { status: false, code: 400, message: "Email already verified" };
                 }
                 const otpRecord = yield otpRepository.findOne({
                     where: { user: { id: auth.user.id } },
@@ -176,10 +170,14 @@ const authService = {
                 if (!isValid) {
                     return { status: false, code: 400, message: "Invalid OTP" };
                 }
-                auth.verified = true;
+                auth.emailVerified = true;
                 yield authRepository.save(auth);
                 yield otpRepository.remove(otpRecord);
-                return { status: true, code: 200, message: "Account verified" };
+                return {
+                    status: true,
+                    code: 200,
+                    message: "Email verified successfully. Please upload required documents for account verification"
+                };
             }
             catch (error) {
                 console.error(error);
@@ -281,6 +279,7 @@ const authService = {
                 if (!userDetails || !userDetails.auth) {
                     return { status: false, code: 404, message: "User not found" };
                 }
+                console.log(`📋 User profile requested - ID: ${userDetails.id}, accountVerified: ${userDetails.auth.accountVerified}`);
                 return {
                     status: true,
                     code: 200,
@@ -290,8 +289,12 @@ const authService = {
                         name: userDetails.name,
                         email: userDetails.auth.email,
                         role: userDetails.auth.role,
-                        verified: userDetails.auth.verified,
+                        emailVerified: userDetails.auth.emailVerified,
+                        accountVerified: userDetails.auth.accountVerified,
+                        verificationRejected: userDetails.auth.verificationRejected,
+                        rejectionReason: userDetails.auth.rejectionReason,
                         phoneNumber: userDetails.phoneNumber,
+                        userType: userDetails.userType,
                         createdAt: userDetails.createdAt,
                     },
                 };
@@ -359,7 +362,7 @@ const authService = {
                             };
                         }
                         userDetails.auth.email = normalizedEmail;
-                        userDetails.auth.verified = false; // require re-verification after email change
+                        userDetails.auth.emailVerified = false; // require re-verification after email change
                         emailChanged = true;
                     }
                 }
@@ -392,7 +395,9 @@ const authService = {
                         name: userDetails.name,
                         email: userDetails.auth.email,
                         role: userDetails.auth.role,
-                        verified: userDetails.auth.verified,
+                        emailVerified: userDetails.auth.emailVerified,
+                        accountVerified: userDetails.auth.accountVerified,
+                        verificationRejected: userDetails.auth.verificationRejected,
                         phoneNumber: userDetails.phoneNumber,
                         createdAt: userDetails.createdAt,
                     },
@@ -501,7 +506,8 @@ const authService = {
                     email,
                     password: hashedPassword,
                     role: enums_1.USER_ROLE.STORE,
-                    verified: true, // can also keep false if you want OTP verification
+                    emailVerified: true, // Store can be email verified directly
+                    accountVerified: false, // Still needs document verification
                     user: storeUser,
                 });
                 yield authRepository.save(storeAuth);
