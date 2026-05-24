@@ -3,6 +3,7 @@ import { BaseEntity } from "../utils/base.entity";
 import { UserEntity } from "./user.entity";
 import { VehicleEntity } from "./vehicle.entity";
 import { PaymentEntity } from "./payment.entity";
+import { RefundRequestEntity } from "./refund_request.entity";
 
 export enum BOOKING_STATUS {
   PENDING = "Pending",
@@ -58,4 +59,7 @@ export class BookingEntity extends BaseEntity {
 
   @OneToMany(() => PaymentEntity, (payment) => payment.booking)
   payments: PaymentEntity[];
+
+  @OneToMany(() => RefundRequestEntity, (refundRequest) => refundRequest.booking)
+  refundRequests: RefundRequestEntity[];
 }

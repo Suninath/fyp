@@ -58,6 +58,7 @@ import AdminLayout from "./AdminLayout";
 import { getDashboardStats, getPendingVerificationUsers, verifyUserAccount } from "../../../rtk/thunk/adminThunk";
 import ChatList from "../../../components/common/ChatList";
 import ChatDialog from "../../../components/common/ChatDialog";
+import { formatPhoneNumber } from "../../../lib/phone";
 
 // Theme colors from tailwind.config.js
 const COLORS = ['#00b300', '#0096FF', '#e50000']; // green, blue, red
@@ -647,7 +648,7 @@ const DashboardOverview = () => {
                   </div>
                   <div>
                     <span className="text-gray-500">Phone:</span>
-                    <p className="font-medium">{selectedUser.phoneNumber || "N/A"}</p>
+                    <p className="font-medium">{formatPhoneNumber(selectedUser.phoneNumber) || "N/A"}</p>
                   </div>
                   <div>
                     <span className="text-gray-500">Registered:</span>

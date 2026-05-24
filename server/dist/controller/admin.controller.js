@@ -86,6 +86,9 @@ const adminController = {
     getDashboardStats(req, res) {
         return __awaiter(this, void 0, void 0, function* () {
             var _a;
+            res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+            res.setHeader("Pragma", "no-cache");
+            res.setHeader("Expires", "0");
             const insightsDaysParam = Number((_a = req.query) === null || _a === void 0 ? void 0 : _a.insightsDays);
             const insightsDays = Number.isInteger(insightsDaysParam) && insightsDaysParam > 0
                 ? insightsDaysParam
@@ -288,11 +291,49 @@ const adminController = {
     },
     getPaymentStats(req, res) {
         return __awaiter(this, void 0, void 0, function* () {
+            res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+            res.setHeader("Pragma", "no-cache");
+            res.setHeader("Expires", "0");
             const { bookingService } = yield Promise.resolve().then(() => __importStar(require("../service/booking.service")));
             const result = yield bookingService.getPaymentStats();
             (0, responseHandler_1.sendResponse)(res, {
                 status: result.status,
                 message: result.message || "Payment stats retrieved successfully",
+                httpCode: result.code,
+                data: result.data,
+            });
+        });
+    }
+    ,
+    getRefundRequests(req, res) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const { page = 1, limit = 10, status } = req.query;
+            const { bookingService } = yield Promise.resolve().then(() => __importStar(require("../service/booking.service")));
+            const result = yield bookingService.getRefundRequests(Number(page), Number(limit), status);
+            (0, responseHandler_1.sendResponse)(res, {
+                status: result.status,
+                message: result.message || "Refund requests retrieved successfully",
+                httpCode: result.code,
+                data: result.data,
+                pagination: result.pagination ? {
+                    currentPage: result.pagination.currentPage,
+                    perpage: result.pagination.perPage,
+                    totalPages: result.pagination.totalPages,
+                    count: result.pagination.total,
+                } : undefined,
+            });
+        });
+    },
+    reviewRefundRequest(req, res) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const { id } = req.params;
+            const { action, adminNotes } = req.body;
+            const adminId = req.user?.id;
+            const { bookingService } = yield Promise.resolve().then(() => __importStar(require("../service/booking.service")));
+            const result = yield bookingService.reviewRefundRequest(Number(id), action, Number(adminId), adminNotes);
+            (0, responseHandler_1.sendResponse)(res, {
+                status: result.status,
+                message: result.message,
                 httpCode: result.code,
                 data: result.data,
             });

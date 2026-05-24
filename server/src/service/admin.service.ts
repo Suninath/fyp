@@ -11,6 +11,10 @@ import { VehicleViewEntity } from "../entities/vehicle_view.entity";
 import { USER_ROLE } from "../constant/enums";
 import { notificationService } from "./notification.service";
 import { NOTIFICATION_TYPE, NotificationEntity } from "../entities/notification.entity";
+import {
+  getInvalidPhoneMessage,
+  isValidNepaliPhoneNumber,
+} from "../utils/phone";
 
 const userRepository = AppDataSource.getRepository(UserEntity);
 const authRepository = AppDataSource.getRepository(AuthEntity);
@@ -552,17 +556,53 @@ const adminService = {
       });
 
       // Payment amount stats for dashboard cards
-      const successfulPayments = await paymentRepository.find({
-        where: { status: PAYMENT_STATUS.SUCCESS },
-        select: ["amount"],
-      });
-      const pendingPayments = await paymentRepository.find({
-        where: { status: PAYMENT_STATUS.PENDING },
-        select: ["amount"],
-      });
+      // Use explicit aggregates that only count exact statuses.
+      const successfulRow = await paymentRepository
+        .createQueryBuilder("payment")
+        .select("COALESCE(SUM(payment.amount), 0)", "total")
+        .where("payment.status = :status", { status: PAYMENT_STATUS.SUCCESS })
+        .getRawOne<{ total: string }>();
 
-      const totalRevenue = successfulPayments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
-      const pendingPaymentAmount = pendingPayments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+      const pendingRow = await paymentRepository
+        .createQueryBuilder("payment")
+        .select("COALESCE(SUM(payment.amount), 0)", "total")
+        .where("payment.status = :status", { status: PAYMENT_STATUS.PENDING })
+        .getRawOne<{ total: string }>();
+
+      const cancelledRow = await paymentRepository
+        .createQueryBuilder("payment")
+        .select("COALESCE(SUM(payment.amount), 0)", "total")
+        .where("payment.status = :status", { status: PAYMENT_STATUS.CANCELLED })
+        .getRawOne<{ total: string }>();
+
+      const failedRow = await paymentRepository
+        .createQueryBuilder("payment")
+        .select("COALESCE(SUM(payment.amount), 0)", "total")
+        .where("payment.status = :status", { status: PAYMENT_STATUS.FAILED })
+        .getRawOne<{ total: string }>();
+
+      // Some refunds are recorded in refundAmount; sum those too.
+      const refundedRow = await paymentRepository
+        .createQueryBuilder("payment")
+        .select("COALESCE(SUM(payment.refundAmount), 0)", "total")
+        .where("payment.refundAmount IS NOT NULL")
+        .getRawOne<{ total: string }>();
+
+      const totalRevenue = Number((successfulRow && successfulRow.total) || 0);
+      const pendingPaymentAmount = Number((pendingRow && pendingRow.total) || 0);
+      const cancelledAmount = Number((cancelledRow && cancelledRow.total) || 0);
+      const failedAmount = Number((failedRow && failedRow.total) || 0);
+      const refundedAmount = Number((refundedRow && refundedRow.total) || 0);
+
+      if (process.env.DEBUG_DASHBOARD_STATS === "true") {
+        console.log("[Dashboard Stats Debug]", {
+          successfulRevenue: totalRevenue,
+          pendingRevenue: pendingPaymentAmount,
+          failedAmount,
+          cancelledAmount,
+          refundedAmount,
+        });
+      }
 
       return {
         status: true,
@@ -582,7 +622,12 @@ const adminService = {
           cancelledBookings,
           completedBookings,
           totalRevenue,
+          successfulRevenue: totalRevenue,
           pendingPaymentAmount,
+          pendingRevenue: pendingPaymentAmount,
+          cancelledAmount,
+          failedAmount,
+          refundedAmount,
           totalVehicleViews: vehicleInterestStats.totalVehicleViews,
           vehiclesWithViews: vehicleInterestStats.vehiclesWithViews,
           totalVehicleInterests: vehicleInterestStats.totalVehicleInterests,
@@ -806,7 +851,30 @@ const adminService = {
 
       // Update user fields
       if (updateData.name) user.name = updateData.name;
-      if (updateData.phoneNumber) user.phoneNumber = updateData.phoneNumber;
+      if (updateData.phoneNumber) {
+        const normalizedPhone = String(updateData.phoneNumber).trim();
+        if (!isValidNepaliPhoneNumber(normalizedPhone)) {
+          return {
+            status: false,
+            code: 400,
+            errorCode: "INVALID_PHONE",
+            message: getInvalidPhoneMessage(),
+          };
+        }
+
+        const existingPhone = await userRepository.findOne({
+          where: { phoneNumber: normalizedPhone },
+        });
+        if (existingPhone && existingPhone.id !== user.id) {
+          return {
+            status: false,
+            code: 400,
+            message: "Phone number already in use",
+          };
+        }
+
+        user.phoneNumber = normalizedPhone;
+      }
       if (updateData.email) user.auth.email = updateData.email;
 
       await userRepository.save(user);

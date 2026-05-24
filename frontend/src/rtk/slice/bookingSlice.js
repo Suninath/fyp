@@ -83,6 +83,29 @@ export const cancelBooking = createAsyncThunk(
   }
 );
 
+export const requestRefund = createAsyncThunk(
+  "booking/requestRefund",
+  async ({ bookingId, reason }, { rejectWithValue }) => {
+    try {
+      const token = localStorage.getItem("authToken");
+      const config = {};
+      if (token) {
+        config.headers = {
+          Authorization: `Bearer ${token}`,
+        };
+      }
+      const response = await main_uri.post(
+        `/api/v1/bookings/${bookingId}/refund-request`,
+        { reason },
+        config
+      );
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data || error.message);
+    }
+  }
+);
+
 export const getVehicleBookings = createAsyncThunk(
   "booking/getVehicleBookings",
   async (vehicleId, { rejectWithValue }) => {
@@ -234,6 +257,23 @@ const bookingSlice = createSlice({
       .addCase(cancelBooking.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload?.message || "Failed to cancel booking";
+      });
+
+    // Refund Request
+    builder
+      .addCase(requestRefund.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(requestRefund.fulfilled, (state, action) => {
+        state.loading = false;
+        if (state.currentBooking?.id === action.payload?.data?.bookingId) {
+          state.currentBooking.refundRequest = action.payload.data;
+        }
+      })
+      .addCase(requestRefund.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload?.message || "Failed to submit refund request";
       });
 
     // Get Vehicle Bookings

@@ -469,16 +469,46 @@ const adminService = {
                     }
                 });
                 // Payment amount stats for dashboard cards
-                const successfulPayments = yield paymentRepository.find({
-                    where: { status: payment_entity_1.PAYMENT_STATUS.SUCCESS },
-                    select: ["amount"],
-                });
-                const pendingPayments = yield paymentRepository.find({
-                    where: { status: payment_entity_1.PAYMENT_STATUS.PENDING },
-                    select: ["amount"],
-                });
-                const totalRevenue = successfulPayments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
-                const pendingPaymentAmount = pendingPayments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+                // Use explicit aggregates that only count exact statuses.
+                const successfulRow = yield paymentRepository
+                    .createQueryBuilder("payment")
+                    .select("COALESCE(SUM(payment.amount), 0)", "total")
+                    .where("payment.status = :status", { status: payment_entity_1.PAYMENT_STATUS.SUCCESS })
+                    .getRawOne();
+                const pendingRow = yield paymentRepository
+                    .createQueryBuilder("payment")
+                    .select("COALESCE(SUM(payment.amount), 0)", "total")
+                    .where("payment.status = :status", { status: payment_entity_1.PAYMENT_STATUS.PENDING })
+                    .getRawOne();
+                const cancelledRow = yield paymentRepository
+                    .createQueryBuilder("payment")
+                    .select("COALESCE(SUM(payment.amount), 0)", "total")
+                    .where("payment.status = :status", { status: payment_entity_1.PAYMENT_STATUS.CANCELLED })
+                    .getRawOne();
+                const failedRow = yield paymentRepository
+                    .createQueryBuilder("payment")
+                    .select("COALESCE(SUM(payment.amount), 0)", "total")
+                    .where("payment.status = :status", { status: payment_entity_1.PAYMENT_STATUS.FAILED })
+                    .getRawOne();
+                const refundedRow = yield paymentRepository
+                    .createQueryBuilder("payment")
+                    .select("COALESCE(SUM(payment.refundAmount), 0)", "total")
+                    .where("payment.refundAmount IS NOT NULL")
+                    .getRawOne();
+                const totalRevenue = Number((successfulRow && successfulRow.total) || 0);
+                const pendingPaymentAmount = Number((pendingRow && pendingRow.total) || 0);
+                const cancelledAmount = Number((cancelledRow && cancelledRow.total) || 0);
+                const failedAmount = Number((failedRow && failedRow.total) || 0);
+                const refundedAmount = Number((refundedRow && refundedRow.total) || 0);
+                if (process.env.DEBUG_DASHBOARD_STATS === "true") {
+                    console.log("[Dashboard Stats Debug]", {
+                        successfulRevenue: totalRevenue,
+                        pendingRevenue: pendingPaymentAmount,
+                        failedAmount,
+                        cancelledAmount,
+                        refundedAmount,
+                    });
+                }
                 return {
                     status: true,
                     code: 200,
@@ -497,7 +527,12 @@ const adminService = {
                         cancelledBookings,
                         completedBookings,
                         totalRevenue,
+                        successfulRevenue: totalRevenue,
                         pendingPaymentAmount,
+                        pendingRevenue: pendingPaymentAmount,
+                        cancelledAmount,
+                        failedAmount,
+                        refundedAmount,
                         totalVehicleViews: vehicleInterestStats.totalVehicleViews,
                         vehiclesWithViews: vehicleInterestStats.vehiclesWithViews,
                         totalVehicleInterests: vehicleInterestStats.totalVehicleInterests,

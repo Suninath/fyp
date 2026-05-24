@@ -7,6 +7,8 @@ import { Input } from "../../ui/ui/input";
 import { Label } from "../../ui/ui/label";
 import { Badge } from "../../ui/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "../../ui/ui/dialog";
+import { ErrorToast } from "../../components/common/toast";
+import PhoneInput from "../../components/common/PhoneInput";
 import {
   User,
   Mail,
@@ -21,6 +23,8 @@ import {
 } from "lucide-react";
 import { getUserProfile, updateUserProfile, verifyOtp } from "../../rtk/thunk/authThunk";
 import DocumentUploadComponent from "../../components/userComp/DocumentUploadComponent";
+import { formatPhoneNumber, getPhoneValidationState } from "../../lib/phone";
+import { isUserVerified } from "../../lib/verification";
 
 const UserProfilePage = () => {
   const dispatch = useDispatch();
@@ -37,6 +41,8 @@ const UserProfilePage = () => {
     phoneNumber: "",
     email: ""
   });
+
+  const phoneValidation = getPhoneValidationState(formData.phoneNumber);
 
   useEffect(() => {
     dispatch(getUserProfile());
@@ -66,6 +72,11 @@ const UserProfilePage = () => {
   };
 
   const handleSave = async () => {
+    if (!phoneValidation.isValid) {
+      ErrorToast({ message: "Please enter a valid 10-digit Nepali mobile number" });
+      return;
+    }
+
     try {
       // Check if email changed
       const emailHasChanged = formData.email.toLowerCase().trim() !== user?.email?.toLowerCase().trim();
@@ -166,7 +177,7 @@ const UserProfilePage = () => {
               </CardHeader>
               <CardContent className="space-y-3 sm:space-y-4 pt-4 sm:pt-6 px-4 sm:px-6">
                 <div className="flex items-center justify-center">
-                  {user?.accountVerified ? (
+                  {isUserVerified(user) ? (
                     <Badge className="bg-green bg-opacity-20 text-green border border-green border-opacity-30 px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm">
                       <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 mr-1.5 sm:mr-2" />
                       Verified Account
@@ -179,7 +190,7 @@ const UserProfilePage = () => {
                   )}
                 </div>
 
-                {!user?.accountVerified && (
+                {!isUserVerified(user) && (
                   <div className="p-4 bg-blue bg-opacity-5 border border-blue border-opacity-30 rounded-lg">
                     <div className="flex items-start space-x-3">
                       <AlertCircle className="w-4 h-4 text-blue mt-0.5 flex-shrink-0" />
@@ -230,7 +241,8 @@ const UserProfilePage = () => {
                     <div className="flex space-x-2">
                       <Button 
                         onClick={handleSave} 
-                        className="flex items-center space-x-2 bg-gradient-to-r from-green to-green hover:from-green hover:to-green text-white shadow-md hover:shadow-lg transition-all"
+                        disabled={!phoneValidation.isValid}
+                        className="flex items-center space-x-2 bg-gradient-to-r from-green to-green hover:from-green hover:to-green text-white shadow-md hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         <Save className="w-4 h-4" />
                         <span>Save</span>
@@ -296,16 +308,20 @@ const UserProfilePage = () => {
                       <span>Phone Number</span>
                     </Label>
                     {isEditing ? (
-                      <Input
+                      <PhoneInput
                         id="phone"
+                        label=""
                         value={formData.phoneNumber}
-                        onChange={(e) => handleInputChange("phoneNumber", e.target.value)}
-                        placeholder="Enter your phone number"
-                        className="border-2 border-gray-300 focus:border-purple focus:ring-purple"
+                        onChange={(value) => handleInputChange("phoneNumber", value)}
+                        placeholder="e.g., 9841234567"
+                        required
+                        showCountryCode
+                        className="space-y-0"
+                        inputClassName="border-2 border-gray-300 focus:border-purple focus:ring-purple"
                       />
                     ) : (
                       <div className="p-3 bg-light-bg rounded-lg border border-gray-200">
-                        <p className="text-gray-800 font-medium">{user?.phoneNumber || "Not provided"}</p>
+                        <p className="text-gray-800 font-medium">{formatPhoneNumber(user?.phoneNumber) || "Not provided"}</p>
                       </div>
                     )}
                   </div>

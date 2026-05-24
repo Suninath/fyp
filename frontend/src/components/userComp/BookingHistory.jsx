@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
-import { getUserBookings, cancelBooking, initiatePayment } from "../../rtk/slice/bookingSlice";
+import { getUserBookings, cancelBooking, initiatePayment, requestRefund } from "../../rtk/slice/bookingSlice";
 import { canReviewBooking, getBookingReview } from "../../rtk/slice/reviewSlice";
 import { 
   Calendar, 
@@ -27,6 +27,8 @@ import {
 } from "lucide-react";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "../../ui/ui/dialog";
+import { Textarea } from "../../ui/ui/textarea";
 import { SucessToast, ErrorToast } from "../common/toast";
 import ReviewForm from "./ReviewForm";
 
@@ -42,6 +44,11 @@ const BookingHistory = ({ filter = "all" }) => {
   const [selectedBookingForReview, setSelectedBookingForReview] = useState(null);
   const [reviewedBookings, setReviewedBookings] = useState(new Set());
   const [bookingReviews, setBookingReviews] = useState({});
+  const [processingPaymentBookingId, setProcessingPaymentBookingId] = useState(null);
+  const [refundModalOpen, setRefundModalOpen] = useState(false);
+  const [refundReason, setRefundReason] = useState("");
+  const [selectedBookingForRefund, setSelectedBookingForRefund] = useState(null);
+  const [refundSubmitting, setRefundSubmitting] = useState(false);
 
   useEffect(() => {
     dispatch(getUserBookings({ page, limit: 100 }));
@@ -131,7 +138,42 @@ const BookingHistory = ({ filter = "all" }) => {
     }
   };
 
+  const openRefundModal = (booking) => {
+    setSelectedBookingForRefund(booking);
+    setRefundReason("");
+    setRefundModalOpen(true);
+  };
+
+  const handleRequestRefund = async () => {
+    if (!selectedBookingForRefund) return;
+    const reason = refundReason.trim();
+    if (reason.length < 20) {
+      ErrorToast({ message: "Please enter at least 20 characters for the refund reason." });
+      return;
+    }
+
+    setRefundSubmitting(true);
+    try {
+      const result = await dispatch(requestRefund({ bookingId: selectedBookingForRefund.id, reason }));
+      if (result.payload?.status) {
+        SucessToast({ message: "Refund request submitted successfully" });
+        dispatch(getUserBookings({ page, limit: 10 }));
+        setRefundModalOpen(false);
+        setSelectedBookingForRefund(null);
+        setRefundReason("");
+      } else {
+        ErrorToast({ message: result.payload?.message || "Failed to submit refund request" });
+      }
+    } finally {
+      setRefundSubmitting(false);
+    }
+  };
+
   const handleCompletePayment = async (booking, method = "eSewa") => {
+    if (processingPaymentBookingId === booking.id) {
+      return;
+    }
+
     // Check if booking start date has passed
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -143,6 +185,8 @@ const BookingHistory = ({ filter = "all" }) => {
       return;
     }
 
+    setProcessingPaymentBookingId(booking.id);
+
     try {
       const result = await dispatch(initiatePayment({ bookingId: booking.id, method }));
       
@@ -150,6 +194,10 @@ const BookingHistory = ({ filter = "all" }) => {
       
       if (result.payload?.status && result.payload?.data?.paymentGateway) {
         const gateway = result.payload.data.paymentGateway;
+
+        if (result.payload?.data?.reusedExisting) {
+          SucessToast({ message: "Resuming previous payment attempt..." });
+        }
         
         if (method === "eSewa") {
           // Build and submit eSewa form
@@ -202,6 +250,8 @@ const BookingHistory = ({ filter = "all" }) => {
     } catch (error) {
       console.error("Payment error:", error);
       ErrorToast({ message: "Failed to initiate payment" });
+    } finally {
+      setProcessingPaymentBookingId(null);
     }
   };
 
@@ -240,6 +290,13 @@ const BookingHistory = ({ filter = "all" }) => {
       default:
         return null;
     }
+  };
+
+  const getLatestRefund = (booking) => booking?.refundRequest || null;
+
+  const isRefundActive = (booking) => {
+    const status = getLatestRefund(booking)?.status;
+    return ["Pending", "Approved", "Processed"].includes(status);
   };
 
   if (loading && !bookings.length) {
@@ -542,7 +599,7 @@ const BookingHistory = ({ filter = "all" }) => {
                 View Vehicle Page
               </Button>
 
-              {booking.status === "Pending" && (
+              {(["Pending", "Confirmed"].includes(booking.status)) && !isRefundActive(booking) && (
                 <>
                   {isBookingExpired(booking) ? (
                     <div className="flex-1 text-center text-amber py-2 font-medium bg-amber/10 rounded-lg border border-amber/20">
@@ -550,30 +607,59 @@ const BookingHistory = ({ filter = "all" }) => {
                     </div>
                   ) : (
                     <div className="flex-1 flex gap-2">
-                      <Button 
-                        onClick={() => handleCompletePayment(booking, "eSewa")}
-                        className="flex-1 bg-green text-white hover:bg-green/90"
-                      >
-                        <CreditCard className="w-4 h-4 mr-2" />
-                        Pay with eSewa
-                      </Button>
-                      <Button 
-                        onClick={() => handleCompletePayment(booking, "Khalti")}
-                        className="flex-1 bg-purple text-white hover:bg-purple/90"
-                      >
-                        <CreditCard className="w-4 h-4 mr-2" />
-                        Pay with Khalti
-                      </Button>
+                      {(booking.status === "Pending" && booking.paymentStatus !== "Success") && (
+                        <>
+                          <Button 
+                            onClick={() => handleCompletePayment(booking, "eSewa")}
+                            disabled={processingPaymentBookingId === booking.id}
+                            className="flex-1 bg-green text-white hover:bg-green/90"
+                          >
+                            <CreditCard className="w-4 h-4 mr-2" />
+                            {processingPaymentBookingId === booking.id ? "Processing..." : "Pay with eSewa"}
+                          </Button>
+                          <Button 
+                            onClick={() => handleCompletePayment(booking, "Khalti")}
+                            disabled={processingPaymentBookingId === booking.id}
+                            className="flex-1 bg-purple text-white hover:bg-purple/90"
+                          >
+                            <CreditCard className="w-4 h-4 mr-2" />
+                            {processingPaymentBookingId === booking.id ? "Processing..." : "Pay with Khalti"}
+                          </Button>
+                        </>
+                      )}
                     </div>
                   )}
-                  <Button
-                    onClick={() => handleCancelBooking(booking.id)}
-                    variant="outline"
-                    className="border-red text-red hover:bg-red/10"
-                  >
-                    Cancel Booking
-                  </Button>
+                  {booking.paymentStatus === "Success" ? (
+                    <Button
+                      onClick={() => openRefundModal(booking)}
+                      variant="outline"
+                      className="border-amber text-amber hover:bg-amber/10"
+                    >
+                      Request Refund
+                    </Button>
+                  ) : (
+                    <Button
+                      onClick={() => handleCancelBooking(booking.id)}
+                      variant="outline"
+                      className="border-red text-red hover:bg-red/10"
+                    >
+                      Cancel Booking
+                    </Button>
+                  )}
                 </>
+              )}
+              {booking.status === "Confirmed" && !isRefundActive(booking) && (
+                <div className="flex gap-2 flex-wrap w-full">
+                  {booking.paymentStatus === "Success" ? (
+                    <Button
+                      onClick={() => openRefundModal(booking)}
+                      variant="outline"
+                      className="border-amber text-amber hover:bg-amber/10"
+                    >
+                      Request Refund
+                    </Button>
+                  ) : null}
+                </div>
               )}
               {booking.status === "Confirmed" && (
                 <div className="flex-1 text-center text-green py-2 font-medium bg-green/10 rounded-lg">
@@ -613,6 +699,19 @@ const BookingHistory = ({ filter = "all" }) => {
                   )}
                 </div>
               )}
+
+              {getLatestRefund(booking) && (
+                <div className="flex-1 text-left p-3 bg-amber/5 border border-amber/20 rounded-lg">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Badge className="bg-amber text-white">Refund {getLatestRefund(booking).status}</Badge>
+                  </div>
+                  <p className="text-sm text-gray-700">
+                    {getLatestRefund(booking).status === "Rejected"
+                      ? `Refund request rejected. ${getLatestRefund(booking).adminNotes || ""}`
+                      : `Refund request submitted on ${new Date(getLatestRefund(booking).requestedAt).toLocaleDateString()}. Awaiting admin review.`}
+                  </p>
+                </div>
+              )}
             </div>
 
             {bookingReviews[booking.id] && (
@@ -632,6 +731,50 @@ const BookingHistory = ({ filter = "all" }) => {
                     {bookingReviews[booking.id].title}
                   </p>
                 )}
+
+                <Dialog open={refundModalOpen} onOpenChange={setRefundModalOpen}>
+                  <DialogContent className="max-w-lg">
+                    <DialogHeader>
+                      <DialogTitle>Request a refund</DialogTitle>
+                      <DialogDescription>
+                        Your booking has been paid. To cancel and receive a refund, please submit a request below.
+                      </DialogDescription>
+                    </DialogHeader>
+
+                    {selectedBookingForRefund && (
+                      <div className="space-y-4 mt-4">
+                        <div className="rounded-lg border border-gray-200 p-4 bg-gray-50 text-sm text-gray-700">
+                          <p><strong>Vehicle:</strong> {selectedBookingForRefund.vehicle?.name || "Vehicle"}</p>
+                          <p><strong>Dates:</strong> {new Date(selectedBookingForRefund.startDate).toLocaleDateString()} to {new Date(selectedBookingForRefund.endDate).toLocaleDateString()}</p>
+                          <p><strong>Amount Paid:</strong> Rs. {Number(selectedBookingForRefund.finalAmount || 0).toLocaleString("en-IN")}</p>
+                        </div>
+
+                        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+                          Refunds are reviewed by admin within 1-2 business days. Approved refunds are processed within 5-7 business days back to your original payment method.
+                        </div>
+
+                        <div>
+                          <label className="mb-2 block text-sm font-semibold text-gray-800">Reason for refund request</label>
+                          <Textarea
+                            value={refundReason}
+                            onChange={(e) => setRefundReason(e.target.value)}
+                            minLength={20}
+                            placeholder="Tell us why you need a refund (at least 20 characters)"
+                          />
+                        </div>
+
+                        <div className="flex justify-end gap-3">
+                          <Button variant="outline" onClick={() => setRefundModalOpen(false)} disabled={refundSubmitting}>
+                            Keep Booking
+                          </Button>
+                          <Button className="bg-amber text-white hover:bg-amber/90" onClick={handleRequestRefund} disabled={refundSubmitting}>
+                            {refundSubmitting ? "Processing..." : "Submit Refund Request"}
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </DialogContent>
+                </Dialog>
 
                 {bookingReviews[booking.id].comment && (
                   <p className="text-sm text-gray-700 leading-relaxed">

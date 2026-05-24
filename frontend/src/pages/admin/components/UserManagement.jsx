@@ -39,6 +39,9 @@ import {
 import AdminLayout from "./AdminLayout";
 import DebouncedInput from "../../../components/common/DebouncedInput";
 import ConfirmDialog from "../../../components/common/ConfirmDialog";
+import PhoneInput from "../../../components/common/PhoneInput";
+import { ErrorToast } from "../../../components/common/toast";
+import { formatPhoneNumber, getPhoneValidationState } from "../../../lib/phone";
 
 import {
   getAllUsers,
@@ -101,6 +104,12 @@ const UserManagement = () => {
   };
 
   const handleUpdateUser = async () => {
+    const phoneValidation = getPhoneValidationState(editForm.phoneNumber);
+    if (!phoneValidation.isValid) {
+      ErrorToast({ message: "Please enter a valid 10-digit Nepali mobile number" });
+      return;
+    }
+
     setActionLoading(editingUser);
     await dispatch(updateUser({ userId: editingUser, data: editForm }));
     setActionLoading(null);
@@ -173,7 +182,7 @@ const UserManagement = () => {
                       {user.name}
                     </TableCell>
                     <TableCell>{user.email}</TableCell>
-                    <TableCell>{user.phoneNumber || "N/A"}</TableCell>
+                    <TableCell>{formatPhoneNumber(user.phoneNumber) || "N/A"}</TableCell>
 
                     {/* STATUS BADGE */}
                     <TableCell>
@@ -305,12 +314,17 @@ const UserManagement = () => {
                 setEditForm({ ...editForm, email: e.target.value })
               }
             />
-            <Input
-              placeholder="Phone Number"
+            <PhoneInput
+              id="admin-user-phone"
+              label="Phone Number"
               value={editForm.phoneNumber}
-              onChange={(e) =>
-                setEditForm({ ...editForm, phoneNumber: e.target.value })
+              onChange={(value) =>
+                setEditForm({ ...editForm, phoneNumber: value })
               }
+              placeholder="e.g., 9841234567"
+              required
+              showCountryCode
+              className="space-y-1"
             />
 
             <div className="flex justify-end gap-3 pt-4">
@@ -319,9 +333,9 @@ const UserManagement = () => {
               </Button>
 
               <Button
-                className="bg-purple text-white"
                 onClick={handleUpdateUser}
-                disabled={actionLoading === editingUser}
+                disabled={actionLoading === editingUser || !getPhoneValidationState(editForm.phoneNumber).isValid}
+                className="bg-purple text-white disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {actionLoading === editingUser ? (
                   <RefreshCw size={16} className="mr-1 animate-spin" />
@@ -367,7 +381,7 @@ const UserManagement = () => {
                   <div>
                     <p className="text-sm text-gray-600">Phone Number</p>
                     <p className="font-semibold">
-                      {selectedUser.phoneNumber || "Not provided"}
+                      {formatPhoneNumber(selectedUser.phoneNumber) || "Not provided"}
                     </p>
                   </div>
                   <div>

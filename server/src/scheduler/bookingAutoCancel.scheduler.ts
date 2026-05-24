@@ -7,6 +7,7 @@ import {
 } from "../entities/notification.entity";
 import { PAYMENT_STATUS, PaymentEntity } from "../entities/payment.entity";
 import { notificationService } from "../service/notification.service";
+import { bookingService } from "../service/booking.service";
 
 const bookingRepository = AppDataSource.getRepository(BookingEntity);
 const paymentRepository = AppDataSource.getRepository(PaymentEntity);
@@ -51,9 +52,9 @@ export const autoCancelUnpaidBookings = async () => {
       continue;
     }
 
-    booking.status = BOOKING_STATUS.CANCELLED;
-    booking.adminRemarks = booking.adminRemarks || AUTO_CANCEL_REMARK;
-    await bookingRepository.save(booking);
+    // Use bookingService to update status so vehicle condition syncs correctly
+    const remark = booking.adminRemarks || AUTO_CANCEL_REMARK;
+    await bookingService.updateBookingStatus(booking.id, BOOKING_STATUS.CANCELLED, remark);
 
     const pendingPayments = (booking.payments || []).filter(
       (payment) => payment.status === PAYMENT_STATUS.PENDING
@@ -62,31 +63,12 @@ export const autoCancelUnpaidBookings = async () => {
     if (pendingPayments.length) {
       pendingPayments.forEach((payment) => {
         payment.status = PAYMENT_STATUS.CANCELLED;
-        payment.response = booking.adminRemarks;
+        payment.response = remark;
       });
       await paymentRepository.save(pendingPayments);
     }
 
-    if (booking.user?.id) {
-      const recipientId = Number(booking.user.id);
-
-      await safeNotify(() =>
-        notificationService.createNotification({
-          recipientId,
-          recipientRole: USER_ROLE.USER,
-          type: NOTIFICATION_TYPE.BOOKING_CANCELLED,
-          title: "Booking automatically cancelled",
-          message: `Booking #${booking.id} was cancelled because payment was not completed before the booking start date.`,
-          data: {
-            bookingId: booking.id,
-            status: BOOKING_STATUS.CANCELLED,
-            adminRemarks: booking.adminRemarks,
-            route: "/bookings",
-          },
-        })
-      );
-    }
-
+    // Notify admins specifically (user notification already handled by bookingService)
     await safeNotify(() =>
       notificationService.createForAdmins({
         type: NOTIFICATION_TYPE.BOOKING_CANCELLED,
@@ -95,7 +77,7 @@ export const autoCancelUnpaidBookings = async () => {
         data: {
           bookingId: booking.id,
           status: BOOKING_STATUS.CANCELLED,
-          adminRemarks: booking.adminRemarks,
+          adminRemarks: remark,
           route: "/admin/bookings",
         },
       })
@@ -125,42 +107,24 @@ export const autoCompleteFinishedBookings = async () => {
     return;
   }
 
-  for (const booking of finishedConfirmedBookings) {
-    booking.status = BOOKING_STATUS.COMPLETED;
-    await bookingRepository.save(booking);
+    for (const booking of finishedConfirmedBookings) {
+      // Use bookingService to mark as completed so vehicle condition is cleared if appropriate
+      await bookingService.updateBookingStatus(booking.id, BOOKING_STATUS.COMPLETED);
 
-    if (booking.user?.id) {
-      const recipientId = Number(booking.user.id);
-
+      // Notify admins about auto-completion (user notification handled in bookingService)
       await safeNotify(() =>
-        notificationService.createNotification({
-          recipientId,
-          recipientRole: USER_ROLE.USER,
+        notificationService.createForAdmins({
           type: NOTIFICATION_TYPE.BOOKING_STATUS_UPDATED,
-          title: "Booking completed",
-          message: `Booking #${booking.id} has been marked as completed because the full booking end date has passed.`,
+          title: "Booking auto-completed",
+          message: `Booking #${booking.id} was automatically marked as completed after the full booking end date passed.`,
           data: {
             bookingId: booking.id,
             status: BOOKING_STATUS.COMPLETED,
-            route: "/bookings",
+            route: "/admin/bookings",
           },
         })
       );
     }
-
-    await safeNotify(() =>
-      notificationService.createForAdmins({
-        type: NOTIFICATION_TYPE.BOOKING_STATUS_UPDATED,
-        title: "Booking auto-completed",
-        message: `Booking #${booking.id} was automatically marked as completed after the full booking end date passed.`,
-        data: {
-          bookingId: booking.id,
-          status: BOOKING_STATUS.COMPLETED,
-          route: "/admin/bookings",
-        },
-      })
-    );
-  }
 };
 
 const runBookingLifecycleJobs = async () => {

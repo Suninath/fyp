@@ -3,6 +3,7 @@ interface ResponseData {
   message?: string;
   data?: any;
   httpCode?: number;
+  [key: string]: any;
   pagination?: {
     count?: number;
     totalPages: number;
@@ -12,7 +13,7 @@ interface ResponseData {
 }
 
 export const sendResponse = (res: any, result: ResponseData) => {
-  const { status, message, data, pagination, httpCode = 200 } = result;
+  const { status, message, data, pagination, httpCode = 200, ...rest } = result;
 
   return res.status(httpCode).json({
     status,
@@ -20,5 +21,6 @@ export const sendResponse = (res: any, result: ResponseData) => {
     message,
     data,
     pagination,
+    ...rest,
   });
 };

@@ -12,6 +12,7 @@ export enum PAYMENT_STATUS {
   SUCCESS = "Success",
   FAILED = "Failed",
   CANCELLED = "Cancelled",
+  REFUNDED = "Refunded",
 }
 
 @Entity("payment")
@@ -38,6 +39,9 @@ export class PaymentEntity extends BaseEntity {
   @Column({ length: 255, nullable: true })
   transactionId?: string;
 
+  @Column({ length: 255, nullable: true, unique: true })
+  transactionUuid?: string;
+
   @Column({ type: "text", nullable: true })
   response?: string;
 
@@ -52,4 +56,10 @@ export class PaymentEntity extends BaseEntity {
 
   @Column({ type: "timestamp", nullable: true })
   refundedAt?: Date;
+
+  @Column({ type: "int", nullable: true, default: 0 })
+  attemptCount?: number;
+
+  @Column({ type: "timestamp", nullable: true })
+  lastAttemptedAt?: Date;
 }

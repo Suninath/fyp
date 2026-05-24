@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { createBooking, getVehicleBookings } from "../../rtk/slice/bookingSlice";
-import { getAuthorize } from "../../rtk/thunk/authThunk";
+import { getAuthorize, getUserProfile } from "../../rtk/thunk/authThunk";
 import { Calendar, MapPin, DollarSign } from "lucide-react";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { SucessToast, ErrorToast } from "../common/toast";
 import PaymentModal from "../common/PaymentModal";
+import { isUserVerified } from "../../lib/verification";
 
 const BookingFilter = ({ vehicleId, vehiclePrice, vehicleLocation }) => {
   const dispatch = useDispatch();
@@ -27,8 +28,10 @@ const BookingFilter = ({ vehicleId, vehiclePrice, vehicleLocation }) => {
     // Ensure auth state is refreshed from cookies/session if page was reloaded
     if (!authenticate) {
       dispatch(getAuthorize());
+    } else {
+      dispatch(getUserProfile());
     }
-  }, [vehicleId, dispatch]);
+  }, [vehicleId, dispatch, authenticate]);
 
   // Calculate total price when dates change
   useEffect(() => {
@@ -62,6 +65,17 @@ const BookingFilter = ({ vehicleId, vehiclePrice, vehicleLocation }) => {
         ErrorToast({ message: "Please login to book a vehicle" });
         return;
       }
+    }
+
+    if (!user) {
+      await dispatch(getUserProfile());
+      ErrorToast({ message: "Loading your profile, please try again." });
+      return;
+    }
+
+    if (!isUserVerified(user)) {
+      ErrorToast({ message: "Account verification is required before booking." });
+      return;
     }
 
     if (!startDate || !endDate || !location) {

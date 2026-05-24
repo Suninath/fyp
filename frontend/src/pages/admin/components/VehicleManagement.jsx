@@ -63,6 +63,7 @@ import {
   deleteVehicle,
 } from "../../../rtk/thunk/adminThunk";
 import { createVehicle } from "../../../rtk/thunk/vehicleThunk";
+import { formatPhoneNumber } from "../../../lib/phone";
 
 const ALL = "all";
 const TAB_ALL = "all";
@@ -759,26 +760,6 @@ const VehicleManagement = () => {
                 </div>
 
                 <div className="space-y-3">
-                  <Label htmlFor="admin-category" className="font-semibold text-gray-900">Listing Type *</Label>
-                  <Select
-                    value={createForm.category}
-                    onValueChange={(value) => {
-                      if (!createPresetType) {
-                        handleCreateInputChange("category", value);
-                      }
-                    }}
-                  >
-                    <SelectTrigger id="admin-category" className="border-2 border-gray-300 focus:border-purple focus:ring-purple bg-white" disabled={!!createPresetType}>
-                      <SelectValue placeholder="Select listing type" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-white">
-                      <SelectItem value="Buy/Sell">Buy/Sell</SelectItem>
-                      <SelectItem value="Renting">Renting</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-3">
                   <Label htmlFor="admin-mileage" className="font-semibold text-gray-900">Mileage (km)</Label>
                   <Input
                     id="admin-mileage"
@@ -1096,7 +1077,7 @@ const VehicleManagement = () => {
                           Phone
                         </p>
                         <p className="font-semibold">
-                          {selectedVehicle.uploadedBy.phoneNumber}
+                          {formatPhoneNumber(selectedVehicle.uploadedBy.phoneNumber)}
                         </p>
                       </div>
                     )}

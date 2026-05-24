@@ -58,6 +58,42 @@ const bookingController = {
     }
   },
 
+  async getEsewaConfig(req: Request, res: Response) {
+    try {
+      const normalizeEsewaPaymentUrl = (url: string) => {
+        const trimmedUrl = String(url || "").trim();
+
+        if (!trimmedUrl) {
+          return "https://rc-epay.esewa.com.np/api/epay/main/v2/form";
+        }
+
+        return trimmedUrl
+          .replace(/\/api\/epay\/login(?:[?#].*)?$/i, "/api/epay/main/v2/form")
+          .replace(/\/api\/epay\/main(?:[?#].*)?$/i, "/api/epay/main/v2/form")
+          .replace(/\/epay\/main(?:[?#].*)?$/i, "/api/epay/main/v2/form");
+      };
+
+      const rawEsewaPaymentUrl = process.env.ESEWA_API_URL || process.env.ESEWA_PAYMENT_URL || "https://rc-epay.esewa.com.np/api/epay/main/v2/form";
+      const esewaApiUrl = normalizeEsewaPaymentUrl(rawEsewaPaymentUrl);
+
+      return res.status(200).json({
+        status: true,
+        nodeEnv: process.env.NODE_ENV || "development",
+        mockPayments: process.env.MOCK_PAYMENTS === "true" || process.env.MOCK_PAYMENTS === "1",
+        esewaApiUrl,
+        rawEsewaApiUrl: rawEsewaPaymentUrl,
+        merchantCode: process.env.ESEWA_MERCHANT_CODE || process.env.ESEWA_MERCHANT_ID || "EPAYTEST",
+        hasSecretKey: Boolean(process.env.ESEWA_SECRET_KEY || process.env.ESEWA_SECRET),
+        secretKeyLength: (process.env.ESEWA_SECRET_KEY || process.env.ESEWA_SECRET || "").length,
+        backendUrl: process.env.BACKEND_URL || "http://localhost:3000",
+        frontendUrl: process.env.FRONTEND_URL || "http://localhost:5173",
+      });
+    } catch (error) {
+      console.error('Error returning eSewa config:', error);
+      return res.status(500).json({ status: false, message: 'Internal Server Error' });
+    }
+  },
+
   async getBookingById(req: Request, res: Response) {
     try {
       const userId = (req as any).user?.id;
@@ -101,6 +137,24 @@ const bookingController = {
         status: false,
         message: "Internal Server Error",
       });
+    }
+  },
+
+  async requestRefund(req: Request, res: Response) {
+    try {
+      const userId = (req as any).user?.id;
+      const bookingId = parseInt(req.params.id);
+      const { reason } = req.body;
+
+      if (!userId) {
+        return res.status(401).json({ status: false, message: "Unauthorized" });
+      }
+
+      const result = await bookingService.requestRefund(bookingId, userId, reason);
+      res.status(result.code).json(result);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ status: false, message: "Internal Server Error" });
     }
   },
 
@@ -257,6 +311,61 @@ const bookingController = {
     }
   },
 
+  async verifyKhalti(req: Request, res: Response) {
+    try {
+      const pidx = req.query.pidx as string;
+      if (!pidx) {
+        return res.status(400).json({ status: false, message: 'Missing pidx parameter' });
+      }
+
+      const verification = await bookingService.verifyKhaltiPayment(pidx);
+      if (!verification.success) {
+        return res.status(400).json({ status: false, message: 'Payment not verified', data: verification.data });
+      }
+
+      // If lookup succeeded, process the payment update via existing khaltiCallback flow
+      const data = verification.data || {};
+      const purchaseOrderId = data.purchase_order_id || data.purchase_order || data.purchase_order_id;
+      const transactionId = data.transaction_id || data.tidx || data.transactionId || pidx;
+      const amount = data.total_amount || data.amount || data.totalAmount || "";
+      const status = data.status || "Completed";
+
+      if (!purchaseOrderId) {
+        // We have a lookup but can't map to an order - return the raw data
+        return res.status(200).json({ status: true, message: 'Payment lookup succeeded (no purchase_order_id)', data });
+      }
+
+      const result = await bookingService.khaltiCallback(
+        pidx,
+        String(transactionId),
+        String(amount),
+        String(purchaseOrderId),
+        String(status)
+      );
+
+      if (result.status) {
+        return res.status(200).json({ status: true, message: 'Payment processed', data: result.data });
+      } else {
+        return res.status(400).json({ status: false, message: result.message || 'Payment verification failed', data: result.data });
+      }
+    } catch (error) {
+      console.error('Khalti verify endpoint error:', error);
+      return res.status(500).json({ status: false, message: 'Internal Server Error' });
+    }
+  },
+
+  async getKhaltiConfig(req: Request, res: Response) {
+    try {
+      const isProduction = process.env.NODE_ENV === 'production';
+      const defaultBase = isProduction ? 'https://a.khalti.com/api/v2' : 'https://dev.khalti.com/api/v2';
+      const khaltiApiUrl = process.env.KHALTI_API_URL || defaultBase;
+      return res.status(200).json({ status: true, khaltiApiUrl });
+    } catch (error) {
+      console.error('Error returning Khalti config:', error);
+      return res.status(500).json({ status: false, message: 'Internal Server Error' });
+    }
+  },
+
 
 
   async getPaymentStatus(req: Request, res: Response) {
@@ -328,6 +437,38 @@ const bookingController = {
         status: false,
         message: "Internal Server Error",
       });
+    }
+  },
+
+  async getRefundRequests(req: Request, res: Response) {
+    try {
+      const userId = (req as any).user?.id;
+      if (!userId) {
+        return res.status(401).json({ status: false, message: "Unauthorized" });
+      }
+
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 10;
+      const status = req.query.status as string | undefined;
+      const result = await bookingService.getRefundRequests(page, limit, status);
+      res.status(result.code).json(result);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ status: false, message: "Internal Server Error" });
+    }
+  },
+
+  async reviewRefundRequest(req: Request, res: Response) {
+    try {
+      const adminId = (req as any).user?.id;
+      const refundRequestId = parseInt(req.params.id);
+      const { action, adminNotes } = req.body;
+
+      const result = await bookingService.reviewRefundRequest(refundRequestId, action, adminId, adminNotes);
+      res.status(result.code).json(result);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ status: false, message: "Internal Server Error" });
     }
   },
 };

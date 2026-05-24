@@ -10,8 +10,11 @@ export const createVehicle = createAsyncThunk(
       SucessToast({ message: resp?.data?.message });
       return resp.data?.data;
     } catch (error) {
-      ErrorToast({ message: error.response?.data?.message });
-      return rejectWithValue(error.response?.data?.message);
+      const responseData = error.response?.data;
+      if (error.response?.status !== 429) {
+        ErrorToast({ message: responseData?.message || "Failed to create listing" });
+      }
+      return rejectWithValue(responseData || { message: error.message || "Failed to create listing" });
     }
   }
 );

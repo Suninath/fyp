@@ -11,6 +11,10 @@ import { AuthEntity } from "../entities/auth.entity";
 import { UserOtpEntity } from "../entities/otp.entity";
 import { USER_ROLE } from "../constant/enums";
 import { OtpEmailParams } from "../interface/otpInterface";
+import {
+  getInvalidPhoneMessage,
+  isValidNepaliPhoneNumber,
+} from "../utils/phone";
 
 const userRepository = AppDataSource.getRepository(UserEntity);
 const authRepository = AppDataSource.getRepository(AuthEntity);
@@ -96,12 +100,22 @@ const authService = {
         return { status: false, code: 400, message: "All fields required" };
       }
 
+      const normalizedPhone = String(phoneNumber).trim();
+      if (!isValidNepaliPhoneNumber(normalizedPhone)) {
+        return {
+          status: false,
+          code: 400,
+          errorCode: "INVALID_PHONE",
+          message: getInvalidPhoneMessage(),
+        };
+      }
+
       const existingEmail = await authRepository.findOneBy({ email });
       if (existingEmail) {
         return { status: false, code: 400, message: "Email already exists" };
       }
 
-      const existingPhone = await userRepository.findOneBy({ phoneNumber });
+      const existingPhone = await userRepository.findOneBy({ phoneNumber: normalizedPhone });
       if (existingPhone) {
         return {
           status: false,
@@ -113,7 +127,7 @@ const authService = {
       const hashedPassword = await hashPassword(password);
 
       /* SAVE USER FIRST */
-      const user = userRepository.create({ name, phoneNumber });
+      const user = userRepository.create({ name, phoneNumber: normalizedPhone });
       await userRepository.save(user);
 
       /* THEN SAVE AUTH */
@@ -382,6 +396,15 @@ const authService = {
       // Update phone number with uniqueness check
       if (typeof phoneNumber === "string") {
         const normalizedPhone = phoneNumber.trim();
+        if (normalizedPhone && !isValidNepaliPhoneNumber(normalizedPhone)) {
+          return {
+            status: false,
+            code: 400,
+            errorCode: "INVALID_PHONE",
+            message: getInvalidPhoneMessage(),
+          };
+        }
+
         if (normalizedPhone && normalizedPhone !== userDetails.phoneNumber) {
           const existingPhone = await userRepository.findOne({
             where: { phoneNumber: normalizedPhone },
@@ -552,12 +575,22 @@ const authService = {
         return { status: false, code: 400, message: "All fields are required" };
       }
 
+      const normalizedPhone = String(phoneNumber).trim();
+      if (!isValidNepaliPhoneNumber(normalizedPhone)) {
+        return {
+          status: false,
+          code: 400,
+          errorCode: "INVALID_PHONE",
+          message: getInvalidPhoneMessage(),
+        };
+      }
+
       const existingEmail = await authRepository.findOneBy({ email });
       if (existingEmail) {
         return { status: false, code: 400, message: "Email already exists" };
       }
 
-      const existingPhone = await userRepository.findOneBy({ phoneNumber });
+      const existingPhone = await userRepository.findOneBy({ phoneNumber: normalizedPhone });
       if (existingPhone) {
         return {
           status: false,
@@ -571,7 +604,7 @@ const authService = {
       /* SAVE STORE USER */
       const storeUser = userRepository.create({
         name: storeNameValue,
-        phoneNumber,
+        phoneNumber: normalizedPhone,
         panNumber,
         companyRegistrationDoc,
         paymentStatus: true, // assuming stores are paid

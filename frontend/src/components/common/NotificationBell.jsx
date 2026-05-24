@@ -92,7 +92,7 @@ const NotificationBell = ({ className = "" }) => {
     <div ref={wrapperRef} className={`relative ${className}`}>
       <button
         onClick={() => setOpen((prev) => !prev)}
-        className="relative p-2 text-gray-400 hover:text-purple hover:bg-light-bg rounded-lg transition"
+        className="relative p-2 text-black hover:text-black hover:bg-light-bg rounded-lg transition"
         title="Notifications"
       >
         <Bell size={20} />

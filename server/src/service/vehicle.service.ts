@@ -2,7 +2,7 @@ import { Request } from "express";
 import AppDataSource from "../config/db.config";
 import { VehicleEntity, VEHICLE_CATEGORY } from "../entities/vehicle.entity";
 import { VehicleViewEntity } from "../entities/vehicle_view.entity";
-import { BookingEntity } from "../entities/booking.entity";
+import { BookingEntity, BOOKING_STATUS } from "../entities/booking.entity";
 import { UserEntity } from "../entities/user.entity";
 import { USER_ROLE } from "../constant/enums";
 import cloudinary from "../config/cloudinary.config";
@@ -19,7 +19,14 @@ const VEHICLE_PRICE_MAX = 9_999_999_999.99; // numeric(12,2) max absolute value 
 const VEHICLE_YEAR_MIN = 1886;
 const VEHICLE_YEAR_MAX = new Date().getFullYear() + 1;
 const VEHICLE_MILEAGE_MAX = 2_147_483_647; // PostgreSQL int upper bound
-const MAX_VEHICLES_PER_USER_PER_DAY = 10;
+const MAX_VEHICLES_PER_DAY = 2;
+const MAX_VEHICLES_PER_MONTH = 5;
+const COOLDOWN_MINUTES = 30;
+const COOLDOWN_MS = COOLDOWN_MINUTES * 60 * 1000;
+const MONTH_WINDOW_DAYS = 30;
+const MONTH_WINDOW_MS = MONTH_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+
+type RateLimitType = "cooldown" | "daily" | "monthly";
 
 const parseIntegerParam = (value: unknown): number | null => {
   if (!hasValue(value)) return null;
@@ -59,6 +66,88 @@ const getAuthenticatedUserId = (req: Request): number | null => {
   }
 
   return parsedUserId;
+};
+
+const getRequestIpAddress = (req: Request) => {
+  const forwardedFor = req.headers["x-forwarded-for"];
+
+  if (Array.isArray(forwardedFor)) {
+    return forwardedFor[0] || req.ip || req.socket?.remoteAddress || "unknown";
+  }
+
+  if (typeof forwardedFor === "string" && forwardedFor.trim()) {
+    return forwardedFor.split(",")[0].trim();
+  }
+
+  return req.ip || req.socket?.remoteAddress || "unknown";
+};
+
+const cleanupUploadedFiles = async (req: Request) => {
+  const files = (req as any).files as Express.Multer.File[] | undefined;
+  if (!files?.length) return;
+
+  for (const file of files) {
+    try {
+      if (fs.existsSync(file.path)) {
+        fs.unlinkSync(file.path);
+      }
+    } catch (error) {
+      console.error("Failed to clean up uploaded file after rate limit rejection:", error);
+    }
+  }
+};
+
+const getNextMidnight = (date: Date) => {
+  const nextMidnight = new Date(date);
+  nextMidnight.setHours(24, 0, 0, 0);
+  return nextMidnight;
+};
+
+const buildRateLimitError = async ({
+  req,
+  limitType,
+  message,
+  currentCount,
+  limit,
+  resetAt,
+}: {
+  req: Request;
+  limitType: RateLimitType;
+  message: string;
+  currentCount: number;
+  limit: number;
+  resetAt: Date;
+}) => {
+  const retryAfter = Math.max(0, Math.ceil((resetAt.getTime() - Date.now()) / 1000));
+
+  console.warn(
+    JSON.stringify({
+      event: "vehicle_rate_limit_rejected",
+      userId: getAuthenticatedUserId(req),
+      attemptAt: new Date().toISOString(),
+      ipAddress: getRequestIpAddress(req),
+      limitType,
+      currentCount,
+      limit,
+      resetAt: resetAt.toISOString(),
+      retryAfter,
+    }),
+  );
+
+  await cleanupUploadedFiles(req);
+
+  return {
+    success: false,
+    status: false,
+    code: 429,
+    errorCode: "RATE_LIMIT_EXCEEDED",
+    limitType,
+    message,
+    currentCount,
+    limit,
+    resetAt: resetAt.toISOString(),
+    retryAfter,
+  };
 };
 
 const trackVehicleDetailView = async (req: Request, vehicleId: number) => {
@@ -265,27 +354,96 @@ const vehicleService = {
       }
 
       const now = new Date();
-      const startOfToday = new Date(now);
-      startOfToday.setHours(0, 0, 0, 0);
 
-      const endOfToday = new Date(now);
-      endOfToday.setHours(23, 59, 59, 999);
-
-      const existingVehicleCount = await vehicleRepository.count({
-        where: {
-          uploader: {
-            id: uploader.id,
+      if (!isAdmin) {
+        const mostRecentVehicle = await vehicleRepository.findOne({
+          where: {
+            uploader: {
+              id: uploader.id,
+            },
           },
-          createdAt: Between(startOfToday, endOfToday),
-        },
-      });
+          order: {
+            createdAt: "DESC",
+          },
+        });
 
-      if (existingVehicleCount >= MAX_VEHICLES_PER_USER_PER_DAY) {
-        return {
-          status: false,
-          code: 400,
-          message: `Daily vehicle limit reached. A user can create a maximum of ${MAX_VEHICLES_PER_USER_PER_DAY} vehicles per day.`,
-        };
+        if (mostRecentVehicle?.createdAt) {
+          const cooldownResetAt = new Date(mostRecentVehicle.createdAt.getTime() + COOLDOWN_MS);
+          if (cooldownResetAt.getTime() > now.getTime()) {
+            return await buildRateLimitError({
+              req,
+              limitType: "cooldown",
+              message: `Please wait ${Math.ceil((cooldownResetAt.getTime() - now.getTime()) / 60000)} minutes before creating another listing.`,
+              currentCount: 1,
+              limit: 1,
+              resetAt: cooldownResetAt,
+            });
+          }
+        }
+
+        const startOfToday = new Date(now);
+        startOfToday.setHours(0, 0, 0, 0);
+
+        const endOfToday = new Date(now);
+        endOfToday.setHours(23, 59, 59, 999);
+
+        const dailyVehicleCount = await vehicleRepository.count({
+          where: {
+            uploader: {
+              id: uploader.id,
+            },
+            createdAt: Between(startOfToday, endOfToday),
+          },
+        });
+
+        if (dailyVehicleCount >= MAX_VEHICLES_PER_DAY) {
+          const dailyResetAt = getNextMidnight(now);
+          return await buildRateLimitError({
+            req,
+            limitType: "daily",
+            message: `You can create a maximum of ${MAX_VEHICLES_PER_DAY} vehicle listings per day. Your limit resets at midnight.`,
+            currentCount: dailyVehicleCount,
+            limit: MAX_VEHICLES_PER_DAY,
+            resetAt: dailyResetAt,
+          });
+        }
+
+        const monthWindowStart = new Date(now.getTime() - MONTH_WINDOW_MS);
+        const monthlyVehicleCount = await vehicleRepository.count({
+          where: {
+            uploader: {
+              id: uploader.id,
+            },
+            createdAt: Between(monthWindowStart, now),
+          },
+        });
+
+        if (monthlyVehicleCount >= MAX_VEHICLES_PER_MONTH) {
+          const oldestVehicleInWindow = await vehicleRepository.findOne({
+            where: {
+              uploader: {
+                id: uploader.id,
+              },
+              createdAt: Between(monthWindowStart, now),
+            },
+            order: {
+              createdAt: "ASC",
+            },
+          });
+
+          const monthlyResetAt = oldestVehicleInWindow?.createdAt
+            ? new Date(oldestVehicleInWindow.createdAt.getTime() + MONTH_WINDOW_MS)
+            : new Date(now.getTime() + MONTH_WINDOW_MS);
+
+          return await buildRateLimitError({
+            req,
+            limitType: "monthly",
+            message: `You can create a maximum of ${MAX_VEHICLES_PER_MONTH} vehicle listings per month. Please wait until your oldest listing rolls out of the 30-day window.`,
+            currentCount: monthlyVehicleCount,
+            limit: MAX_VEHICLES_PER_MONTH,
+            resetAt: monthlyResetAt,
+          });
+        }
       }
 
       // Upload images to Cloudinary if files are provided
@@ -759,6 +917,9 @@ const vehicleService = {
         limit = 10,
         search,
         category,
+        startDate,
+        endDate,
+        availableNow,
         brand,
         fuel,
         minYear,
@@ -898,11 +1059,7 @@ const vehicleService = {
         queryBuilder.andWhere("vehicle.price <= :maxPrice", { maxPrice: parsedMaxPrice });
       }
 
-      // Add pagination
-      const parsedPage = parseIntegerParam(page) ?? 1;
-      const parsedLimit = parseIntegerParam(limit) ?? 10;
-      const offset = (parsedPage - 1) * parsedLimit;
-      queryBuilder.skip(offset).take(parsedLimit);
+      // Pagination will be applied after availability filtering (below)
 
       // Apply requested sort order, defaulting to newest first
       switch (sort) {
@@ -927,14 +1084,152 @@ const vehicleService = {
           break;
       }
 
-      const [vehicles, total] = await queryBuilder.getManyAndCount();
+      // If availability filtering or date-range checks are requested, fetch all matching vehicles
+      // and compute availabilityStatus for each before applying pagination. Otherwise, use
+      // database-level pagination for performance.
+      let allVehicles: VehicleEntity[] = [];
+      let total = 0;
 
+      const needsAvailabilityChecks = hasValue(startDate) || hasValue(endDate) || String(availableNow) === "true";
+
+      if (needsAvailabilityChecks) {
+        allVehicles = await queryBuilder.getMany();
+        total = allVehicles.length;
+      } else {
+        const result = await queryBuilder.getManyAndCount();
+        allVehicles = result[0];
+        total = result[1];
+      }
+
+      // Helper to compute availability for a vehicle
+      const computeAvailability = async (vehicle: VehicleEntity) => {
+        // only compute for renting category
+        if (vehicle.category !== VEHICLE_CATEGORY.RENTING) {
+          return { availabilityStatus: "available" };
+        }
+
+        // Use start-of-day boundaries to avoid timezone/time-of-day inversion
+        const now = new Date();
+        const startOfToday = new Date(now);
+        startOfToday.setHours(0, 0, 0, 0);
+        const endOfToday = new Date(now);
+        endOfToday.setHours(23, 59, 59, 999);
+
+        // load bookings for this vehicle
+        const bookings = await bookingRepository.find({
+          where: { vehicle: { id: vehicle.id } },
+          order: { startDate: "ASC" },
+        });
+
+        const confirmedBookings = bookings.filter((b) => b.status === BOOKING_STATUS.CONFIRMED);
+
+        // Debug logging to trace availability computation
+        try {
+          console.log('--- Computing status for vehicle:', vehicle?.name, vehicle?.id);
+          console.log('Today start (local):', startOfToday.toISOString());
+          console.log('Today end (local):', endOfToday.toISOString());
+          console.log('Loaded bookings count:', bookings.length);
+          console.log('Confirmed bookings:', confirmedBookings.map((b) => ({ id: (b as any).id, startDate: b.startDate, endDate: b.endDate, status: b.status })));
+        } catch (logErr) {
+          console.warn('Failed to log availability debug info:', logErr);
+        }
+
+        // If caller passed a date range, evaluate conflicts against that range
+        if (hasValue(startDate) && hasValue(endDate)) {
+          const userStart = new Date(String(startDate));
+          const userEnd = new Date(String(endDate));
+          const conflicts = confirmedBookings.filter((b) => {
+            const bs = new Date(b.startDate);
+            const be = new Date(b.endDate);
+            // overlap if userStart <= be && userEnd >= bs
+            return userStart <= be && userEnd >= bs;
+          });
+
+          try {
+            console.log('Date-range check for vehicle', vehicle?.id, 'userStart:', userStart.toISOString(), 'userEnd:', userEnd.toISOString(), 'conflicts:', conflicts.length);
+          } catch (logErr) {}
+
+          const status = conflicts.length > 0 ? "booked" : "available";
+          try { console.log('Final availabilityStatus assigned for vehicle', vehicle?.id, status); } catch (e) {}
+          return { availabilityStatus: status };
+        }
+
+        // No date range: compute for today using startOfToday boundary
+        const activeBookings = confirmedBookings.filter((b) => {
+          const bs = new Date(b.startDate);
+          const be = new Date(b.endDate);
+          // active today if bs <= endOfToday && be >= startOfToday
+          return bs <= endOfToday && be >= startOfToday;
+        });
+
+        try {
+          console.log('Active bookings count for vehicle', vehicle?.id, activeBookings.length);
+        } catch (logErr) {}
+
+        if (activeBookings.length > 0) {
+          // compute bookedUntil as latest end date among active bookings
+          const bookedUntil = new Date(Math.max(...activeBookings.map((b) => new Date(b.endDate).getTime())));
+          try {
+            console.log('Vehicle', vehicle?.id, '-> booked until', bookedUntil.toISOString());
+            console.log('Final availabilityStatus assigned for vehicle', vehicle?.id, 'booked');
+          } catch (logErr) {}
+          return { availabilityStatus: "booked", bookedUntil };
+        }
+
+        const upcoming = confirmedBookings.filter((b) => new Date(b.startDate) > endOfToday);
+        if (upcoming.length > 0) {
+          const nextStart = new Date(upcoming[0].startDate);
+          try {
+            console.log('Vehicle', vehicle?.id, '-> next start at', nextStart.toISOString());
+            console.log('Final availabilityStatus assigned for vehicle', vehicle?.id, 'reserved');
+          } catch (logErr) {}
+          return { availabilityStatus: "reserved", nextStartDate: nextStart };
+        }
+
+        const finalStatus = "available";
+        try { console.log('Final availabilityStatus assigned for vehicle', vehicle?.id, finalStatus); } catch (e) {}
+
+        // If DB vehicle.condition is stale (e.g., still 'reserved') while availability is free,
+        // clear the reserved flag so frontend that still reads `condition` doesn't show wrong badge.
+        try {
+          if (vehicle.condition === "reserved") {
+            vehicle.condition = undefined;
+            await vehicleRepository.save(vehicle);
+            console.log('Cleared stale vehicle.condition for vehicle', vehicle?.id);
+          }
+        } catch (vehErr) {
+          console.error('Failed to clear stale vehicle.condition for', vehicle?.id, vehErr);
+        }
+
+        return { availabilityStatus: finalStatus };
+      };
+
+      // Compute availability for matching vehicles (only page slice when pagination requested without availability checks)
+      const vehiclesToCompute = needsAvailabilityChecks ? allVehicles : allVehicles;
+      const vehiclesWithStatus = [] as any[];
+
+      for (const vehicle of vehiclesToCompute) {
+        const avail = await computeAvailability(vehicle);
+        vehiclesWithStatus.push({ vehicle, ...avail });
+      }
+
+      // If "availableNow" filter requested, filter out non-available vehicles
+      let filtered = vehiclesWithStatus;
+      if (String(availableNow) === "true") {
+        filtered = vehiclesWithStatus.filter((v) => v.availabilityStatus === "available");
+      }
+
+      // Apply pagination on filtered results
+      const parsedPage = parseIntegerParam(page) ?? 1;
+      const parsedLimit = parseIntegerParam(limit) ?? 10;
+      const offset = (parsedPage - 1) * parsedLimit;
+      const paged = filtered.slice(offset, offset + parsedLimit);
       return {
         status: true,
         code: 200,
         message: "Vehicles retrieved successfully",
         data: {
-          vehicles: vehicles.map((vehicle) => ({
+          vehicles: paged.map(({ vehicle, availabilityStatus, nextStartDate, bookedUntil }) => ({
             id: vehicle.id,
             name: vehicle.name,
             make: vehicle.make,
@@ -953,12 +1248,15 @@ const vehicleService = {
             images: vehicle.images,
             category: vehicle.category,
             createdAt: vehicle.createdAt,
+            availabilityStatus,
+            nextStartDate,
+            bookedUntil,
           })),
           pagination: {
-            currentPage: parseInt(page as string),
-            perpage: parseInt(limit as string),
-            count: total,
-            totalPages: Math.ceil(total / parseInt(limit as string)),
+            currentPage: parsedPage,
+            perpage: parsedLimit,
+            count: filtered.length,
+            totalPages: Math.ceil(filtered.length / parsedLimit),
           },
         },
       };

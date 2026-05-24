@@ -25,9 +25,12 @@ import {
 } from "lucide-react";
 import { getUserVehicles, createVehicle, updateVehicle, deleteVehicle } from "../../rtk/thunk/vehicleThunk";
 import { clearLastCreatedVehicleId } from "../../rtk/slice/vehicleSlice";
+import { getUserProfile } from "../../rtk/thunk/authThunk";
 import CommentSection from "../../components/common/CommentSection"; // Import the component
 import Pagination from "../../components/common/Pagination";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
+import { ErrorToast } from "../../components/common/toast";
+import { isUserVerified } from "../../lib/verification";
 
 // Helper to construct full image URL
 const getImageUrl = (path) => {
@@ -43,6 +46,7 @@ const UserVehiclesPage = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { vehicles, loading, pagination, lastCreatedVehicleId } = useSelector((state) => state.vehicle);
+  const { user } = useSelector((state) => state.auth);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -77,6 +81,20 @@ const UserVehiclesPage = () => {
     console.log("UserVehiclesPage mounted, dispatching loadVehicles");
     loadVehicles();
   }, [dispatch, currentPage, pageSize, searchTerm]);
+
+  useEffect(() => {
+    dispatch(getUserProfile());
+  }, [dispatch]);
+
+  const handleNavigateCreateVehicle = () => {
+    if (!isUserVerified(user)) {
+      ErrorToast({ message: "Account verification is required to list vehicles." });
+      navigate("/profile");
+      return;
+    }
+
+    navigate('/user/create-vehicle');
+  };
 
   useEffect(() => {
     if (!lastCreatedVehicleId) return undefined;
@@ -313,7 +331,7 @@ const UserVehiclesPage = () => {
               </div>
               <Button
                 variant="secondary"
-                onClick={() => navigate('/user/create-vehicle')}
+                onClick={handleNavigateCreateVehicle}
                 className="flex-none px-5 py-2.5 rounded-lg font-semibold flex items-center gap-2"
               >
                 <Plus className="w-4 h-4 mr-2" />
@@ -363,7 +381,7 @@ const UserVehiclesPage = () => {
                 </p>
                 <Button
                   variant="secondary"
-                  onClick={() => navigate('/user/create-vehicle')}
+                  onClick={handleNavigateCreateVehicle}
                   className="flex-none px-5 py-2.5 rounded-lg font-semibold flex items-center gap-2"
                 >
                   <Plus className="w-4 h-4 mr-2" />

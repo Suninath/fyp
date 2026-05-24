@@ -24,6 +24,7 @@ const db_config_1 = __importDefault(require("./config/db.config"));
 const socket_config_1 = require("./config/socket.config");
 const user_entity_1 = require("./entities/user.entity");
 const bookingAutoCancel_scheduler_1 = require("./scheduler/bookingAutoCancel.scheduler");
+const cancelStalePayments_scheduler_1 = require("./scheduler/cancelStalePayments.scheduler");
 const startServer = () => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const app = (0, express_1.default)();
@@ -78,6 +79,7 @@ const startServer = () => __awaiter(void 0, void 0, void 0, function* () {
             .set({ isOnline: false, lastSeen: new Date() })
             .execute();
         (0, bookingAutoCancel_scheduler_1.scheduleBookingAutoCancellation)();
+        (0, cancelStalePayments_scheduler_1.scheduleCancelStalePayments)();
         const port = process.env.PORT || 8080;
         httpServer.listen(port, () => console.log(`Server listening on port ${port}`));
     }

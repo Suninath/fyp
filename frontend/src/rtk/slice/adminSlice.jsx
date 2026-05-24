@@ -21,7 +21,9 @@ import {
   updateBookingStatus,
   getBookingStats,
   getAllPayments,
-  getPaymentStats
+  getPaymentStats,
+  getRefundRequests,
+  reviewRefundRequest
 } from "../thunk/adminThunk";
 
 const initialState = {
@@ -112,6 +114,13 @@ const initialState = {
       esewa: 0,
       khalti: 0
     }
+  },
+  refundRequests: [],
+  refundPagination: {
+    currentPage: 1,
+    perpage: 10,
+    count: 0,
+    totalPages: 1,
   },
   loading: false,
   error: null,
@@ -364,6 +373,27 @@ const adminSlice = createSlice({
       .addCase(getPaymentStats.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
+      })
+
+      // Refund Requests
+      .addCase(getRefundRequests.pending, (state) => {
+        state.loading = true;
+      })
+      .addCase(getRefundRequests.fulfilled, (state, action) => {
+        state.loading = false;
+        state.refundRequests = action.payload?.data || [];
+        state.refundPagination = action.payload?.pagination || initialState.refundPagination;
+      })
+      .addCase(getRefundRequests.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+
+      .addCase(reviewRefundRequest.fulfilled, (state, action) => {
+        const { id, action: reviewAction } = action.payload;
+        state.refundRequests = state.refundRequests.map((request) =>
+          request.id === id ? { ...request, status: reviewAction === "Processed" ? "Processed" : reviewAction === "Approve" ? "Approved" : "Rejected" } : request
+        );
       });
   },
 });

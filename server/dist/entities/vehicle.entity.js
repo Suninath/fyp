@@ -56,6 +56,14 @@ __decorate([
 __decorate([
     (0, typeorm_1.Column)({ length: 50, nullable: true }),
     __metadata("design:type", String)
+], VehicleEntity.prototype, "bodyType", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: "int", nullable: true }),
+    __metadata("design:type", Number)
+], VehicleEntity.prototype, "ownerCount", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ length: 50, nullable: true }),
+    __metadata("design:type", String)
 ], VehicleEntity.prototype, "color", void 0);
 __decorate([
     (0, typeorm_1.Column)({ length: 100, nullable: true }),

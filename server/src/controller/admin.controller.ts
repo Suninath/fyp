@@ -36,6 +36,11 @@ const adminController = {
   },
 
   async getDashboardStats(req: Request, res: Response) {
+    // Prevent stale dashboard stats in browsers/proxies.
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+    res.setHeader("Pragma", "no-cache");
+    res.setHeader("Expires", "0");
+
     const insightsDaysParam = Number(req.query?.insightsDays);
     const insightsDays =
       Number.isInteger(insightsDaysParam) && insightsDaysParam > 0
@@ -239,11 +244,48 @@ const adminController = {
   },
 
   async getPaymentStats(req: Request, res: Response) {
+    // Prevent stale payment stats cards in browser/proxy caches.
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+    res.setHeader("Pragma", "no-cache");
+    res.setHeader("Expires", "0");
+
     const { bookingService } = await import("../service/booking.service");
     const result = await bookingService.getPaymentStats();
     sendResponse(res, {
       status: result.status,
       message: result.message || "Payment stats retrieved successfully",
+      httpCode: result.code,
+      data: result.data,
+    });
+  },
+
+  async getRefundRequests(req: Request, res: Response) {
+    const { page = 1, limit = 10, status } = req.query;
+    const { bookingService } = await import("../service/booking.service");
+    const result = await bookingService.getRefundRequests(Number(page), Number(limit), status as string);
+    sendResponse(res, {
+      status: result.status,
+      message: result.message || "Refund requests retrieved successfully",
+      httpCode: result.code,
+      data: result.data,
+      pagination: result.pagination ? {
+        currentPage: result.pagination.currentPage,
+        perpage: result.pagination.perPage,
+        totalPages: result.pagination.totalPages,
+        count: result.pagination.total,
+      } : undefined,
+    });
+  },
+
+  async reviewRefundRequest(req: Request, res: Response) {
+    const { id } = req.params;
+    const { action, adminNotes } = req.body;
+    const adminId = (req as any).user?.id;
+    const { bookingService } = await import("../service/booking.service");
+    const result = await bookingService.reviewRefundRequest(Number(id), action, Number(adminId), adminNotes);
+    sendResponse(res, {
+      status: result.status,
+      message: result.message,
       httpCode: result.code,
       data: result.data,
     });

@@ -7,7 +7,8 @@ import {
   LogOut,
   Car,
   User,
-  ChevronDown
+  ChevronDown,
+  Heart
 } from "lucide-react";
 import { userLogout, getUserProfile } from "../../rtk/thunk/authThunk";
 import BrandMark from "../../components/common/BrandMark";
@@ -45,6 +46,10 @@ const UserDashboard = () => {
               <Button variant="ghost" onClick={() => navigate('/vehicles')} className="flex items-center space-x-2">
                 <Car className="w-4 h-4" />
                 <span className="hidden sm:inline">My Vehicles</span>
+              </Button>
+              <Button variant="ghost" onClick={() => navigate('/favorites')} className="flex items-center space-x-2">
+                <Heart className="w-4 h-4" />
+                <span className="hidden sm:inline">Favorites</span>
               </Button>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>

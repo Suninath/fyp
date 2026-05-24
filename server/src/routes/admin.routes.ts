@@ -38,4 +38,8 @@ router.patch("/bookings/:bookingId/status", adminController.updateBookingStatus)
 router.get("/payments", adminController.getAllPayments);
 router.get("/payments/stats", adminController.getPaymentStats);
 
+// Refund requests
+router.get("/refunds", adminController.getRefundRequests);
+router.patch("/refunds/:id/review", adminController.reviewRefundRequest);
+
 export default router;

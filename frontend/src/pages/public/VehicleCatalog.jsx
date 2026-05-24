@@ -28,6 +28,7 @@ import ComparisonDrawer from "../../components/common/ComparisonDrawer";
 import FilterSidebar from "../../components/public/FilterSidebar";
 import useFavorites from "../../hooks/useFavorites";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "../../ui/ui/dialog";
+import { isUserVerified } from "../../lib/verification";
 
 // Helper to construct full image URL
 const getImageUrl = (path) => {
@@ -288,7 +289,11 @@ const VehicleCatalog = () => {
 
   const handleFavoriteToggle = (event, vehicleId) => {
     event.stopPropagation();
+    const wasFavorite = isFavorite(vehicleId);
     toggleFavorite(vehicleId);
+    if (!wasFavorite) {
+      navigate("/favorites");
+    }
   };
 
   const handleSidebarFiltersChange = useCallback((nextFilters) => {
@@ -504,7 +509,7 @@ const VehicleCatalog = () => {
             <p className="text-sm md:text-base text-gray-600">Find the perfect vehicle for your needs</p>
           </div>
           <div className="flex gap-2 flex-col sm:flex-row w-full sm:w-auto">
-            {user?.accountVerified && (
+            {isUserVerified(user) && (
               <Button
                 onClick={() => navigate("/user/create-vehicle")}
                 className="flex items-center gap-2 px-3 md:px-4 py-2 bg-secondary text-white rounded-lg hover:bg-emerald-700 transition-colors text-sm md:text-base w-full sm:w-auto justify-center"
@@ -609,14 +614,22 @@ const VehicleCatalog = () => {
                   className={`rounded-lg p-2 transition-all duration-200 focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2 ${effectiveViewMode === "grid" ? "bg-emerald-500 text-white shadow-md" : "bg-emerald-50 text-emerald-600 hover:bg-emerald-100"}`}
                   aria-label="Grid view"
                 >
-                  <LayoutGrid size={16} />
+                  <LayoutGrid
+                    size={18}
+                    strokeWidth={2.5}
+                    style={{ color: effectiveViewMode === "grid" ? "#ffffff" : "#0f766e" }}
+                  />
                 </button>
                 <button
                   onClick={() => handleViewModeChange("list")}
                   className={`rounded-lg p-2 transition-all duration-200 focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2 ${effectiveViewMode === "list" ? "bg-emerald-500 text-white shadow-md" : "bg-emerald-50 text-emerald-600 hover:bg-emerald-100"}`}
                   aria-label="List view"
                 >
-                  <List size={16} />
+                  <List
+                    size={18}
+                    strokeWidth={2.5}
+                    style={{ color: effectiveViewMode === "list" ? "#ffffff" : "#0f766e" }}
+                  />
                 </button>
               </div>
 
@@ -624,7 +637,7 @@ const VehicleCatalog = () => {
                 onClick={() => setIsFiltersOpen(true)}
                 className="inline-flex items-center gap-2 rounded-lg border-2 border-emerald-200 bg-emerald-50 px-5 py-2 text-sm font-semibold text-emerald-700 transition-all duration-200 hover:border-emerald-400 hover:bg-emerald-100 focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2"
               >
-                <SlidersHorizontal size={16} className="text-emerald-600" />
+                <SlidersHorizontal size={18} strokeWidth={2.5} className="shrink-0 text-emerald-700" />
                 Filters
                 {activeFilterCount > 0 && (
                   <span className="ml-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-emerald-600 text-xs font-bold text-white">

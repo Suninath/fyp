@@ -11,6 +11,7 @@ import {
   ChevronRight,
   Calendar,
   CreditCard,
+  RotateCcw,
   MessageCircle,
   PieChart
 } from "lucide-react";
@@ -33,9 +34,11 @@ const AdminLayout = ({ children, activeTab }) => {
   const dispatch = useDispatch();
   const { role, name, email } = useSelector((state) => state.auth);
   const { conversations = [] } = useSelector((state) => state.chat);
+  const { refundRequests = [] } = useSelector((state) => state.admin || {});
   const [isLogoutDialogOpen, setIsLogoutDialogOpen] = useState(false);
 
   const usersWithUnreadMessages = conversations.filter((conv) => conv?.unreadCount > 0).length;
+  const pendingRefundCount = refundRequests.filter((request) => request?.status === "Pending").length;
 
   useEffect(() => {
     if (role === "admin") {
@@ -58,6 +61,7 @@ const AdminLayout = ({ children, activeTab }) => {
     { id: "messages", label: "Messages", icon: MessageCircle, path: "/admin/messages", description: "Support conversations" },
     { id: "bookings", label: "Bookings", icon: Calendar, path: "/admin/bookings", description: "Manage all bookings" },
     { id: "payments", label: "Payments", icon: CreditCard, path: "/admin/payments", description: "Transaction history" },
+    { id: "refunds", label: "Refund Requests", icon: RotateCcw, path: "/admin/refunds", description: "Review refund requests" },
     { id: "documents", label: "Documents", icon: FileText, path: "/admin/documents", description: "Review documents" }
   ];
 
@@ -100,7 +104,14 @@ const AdminLayout = ({ children, activeTab }) => {
                 <Icon size={18} />
               </div>
               <div className="flex-1 text-left">
-                <p className="font-medium text-sm">{label}</p>
+                <div className="flex items-center gap-2">
+                  <p className="font-medium text-sm">{label}</p>
+                  {id === "refunds" && pendingRefundCount > 0 && (
+                    <Badge className="bg-red text-white text-[10px] px-1.5 py-0 h-5 min-w-5 rounded-full flex items-center justify-center">
+                      {pendingRefundCount > 9 ? "9+" : pendingRefundCount}
+                    </Badge>
+                  )}
+                </div>
                 <p className={`text-xs ${isActive(id) ? 'text-white/70' : 'text-gray-500'}`}>
                   {description}
                 </p>

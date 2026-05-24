@@ -1,6 +1,7 @@
 import AppDataSource from "../config/db.config";
 import { BookingEntity, BOOKING_STATUS } from "../entities/booking.entity";
 import { PaymentEntity, PAYMENT_METHOD, PAYMENT_STATUS } from "../entities/payment.entity";
+import { RefundRequestEntity, REFUND_REQUEST_STATUS } from "../entities/refund_request.entity";
 import { VehicleEntity } from "../entities/vehicle.entity";
 import { UserEntity } from "../entities/user.entity";
 import { USER_ROLE } from "../constant/enums";
@@ -12,8 +13,23 @@ import crypto from "crypto";
 
 const bookingRepository = AppDataSource.getRepository(BookingEntity);
 const paymentRepository = AppDataSource.getRepository(PaymentEntity);
+const refundRequestRepository = AppDataSource.getRepository(RefundRequestEntity);
 const vehicleRepository = AppDataSource.getRepository(VehicleEntity);
 const userRepository = AppDataSource.getRepository(UserEntity);
+
+const getLatestPaymentStatus = (payments?: PaymentEntity[]) => {
+  if (!payments || payments.length === 0) {
+    return PAYMENT_STATUS.PENDING;
+  }
+
+  const latestPayment = [...payments].sort((left, right) => Number(right.id) - Number(left.id))[0];
+  return latestPayment?.status || PAYMENT_STATUS.PENDING;
+};
+
+const getLatestRefundRequest = (refundRequests?: RefundRequestEntity[]) => {
+  if (!refundRequests || refundRequests.length === 0) return null;
+  return [...refundRequests].sort((left, right) => Number(right.id) - Number(left.id))[0] || null;
+};
 
 const safeNotify = async (callback: () => Promise<unknown>) => {
   try {
@@ -182,7 +198,7 @@ export const bookingService = {
     try {
       const [bookings, total] = await bookingRepository.findAndCount({
         where: { user: { id: userId } },
-        relations: ["vehicle", "payments"],
+        relations: ["vehicle", "payments", "refundRequests"],
         skip: (page - 1) * limit,
         take: limit,
         order: { createdAt: "DESC" },
@@ -221,10 +237,20 @@ export const bookingService = {
           status: booking.status,
           notes: booking.notes,
           adminRemarks: booking.adminRemarks,
-          paymentStatus:
-            booking.payments?.length > 0
-              ? booking.payments[0].status
-              : PAYMENT_STATUS.PENDING,
+          paymentStatus: getLatestPaymentStatus(booking.payments),
+          refundRequest: (() => {
+            const latestRefund = getLatestRefundRequest(booking.refundRequests);
+            return latestRefund
+              ? {
+                  id: latestRefund.id,
+                  status: latestRefund.status,
+                  reason: latestRefund.reason,
+                  adminNotes: latestRefund.adminNotes,
+                  requestedAt: latestRefund.requestedAt,
+                  processedAt: latestRefund.processedAt,
+                }
+              : null;
+          })(),
           createdAt: booking.createdAt,
         })),
         pagination: {
@@ -254,7 +280,7 @@ export const bookingService = {
 
       const [bookings, total] = await bookingRepository.findAndCount({
         where: whereClause,
-        relations: ["vehicle", "user", "user.auth", "payments"],
+        relations: ["vehicle", "user", "user.auth", "payments", "refundRequests"],
         skip: (page - 1) * limit,
         take: limit,
         order: { createdAt: "DESC" },
@@ -287,10 +313,20 @@ export const bookingService = {
           finalAmount: booking.finalAmount,
           status: booking.status,
           adminRemarks: booking.adminRemarks,
-          paymentStatus:
-            booking.payments?.length > 0
-              ? booking.payments[0].status
-              : PAYMENT_STATUS.PENDING,
+          paymentStatus: getLatestPaymentStatus(booking.payments),
+          refundRequest: (() => {
+            const latestRefund = getLatestRefundRequest(booking.refundRequests);
+            return latestRefund
+              ? {
+                  id: latestRefund.id,
+                  status: latestRefund.status,
+                  reason: latestRefund.reason,
+                  adminNotes: latestRefund.adminNotes,
+                  requestedAt: latestRefund.requestedAt,
+                  processedAt: latestRefund.processedAt,
+                }
+              : null;
+          })(),
           createdAt: booking.createdAt,
         })),
         pagination: {
@@ -312,14 +348,21 @@ export const bookingService = {
 
   // Admin: Update booking status
   async updateBookingStatus(
-    bookingId: number,
+    bookingId: number | undefined,
     status: BOOKING_STATUS,
     adminRemarks?: string
   ) {
     try {
+      if (!bookingId) {
+        return {
+          status: false,
+          code: 400,
+          message: "Invalid booking id",
+        };
+      }
       const booking = await bookingRepository.findOne({
         where: { id: bookingId },
-        relations: ["user"],
+        relations: ["user", "vehicle"],
       });
 
       if (!booking) {
@@ -344,6 +387,50 @@ export const bookingService = {
       booking.adminRemarks =
         status === BOOKING_STATUS.CANCELLED ? normalizedRemarks : booking.adminRemarks;
       await bookingRepository.save(booking);
+
+      if (status === BOOKING_STATUS.CANCELLED) {
+        const pendingPayments = await paymentRepository.find({
+          where: {
+            booking: { id: booking.id },
+            status: PAYMENT_STATUS.PENDING,
+          },
+          relations: ["booking"],
+        });
+
+        for (const payment of pendingPayments) {
+          payment.status = PAYMENT_STATUS.CANCELLED;
+          payment.response = JSON.stringify({
+            reason: "booking_cancelled",
+            cancelledAt: new Date().toISOString(),
+          });
+          await paymentRepository.save(payment);
+        }
+      }
+
+      // Update vehicle condition based on booking status
+      try {
+        if (booking.vehicle && booking.vehicle.id) {
+          const vehicle = await vehicleRepository.findOne({ where: { id: booking.vehicle.id } });
+          if (vehicle) {
+            if (status === BOOKING_STATUS.CONFIRMED) {
+              vehicle.condition = "reserved";
+              await vehicleRepository.save(vehicle);
+            } else if (status === BOOKING_STATUS.CANCELLED || status === BOOKING_STATUS.COMPLETED) {
+              // If there are no other confirmed bookings for this vehicle, clear reserved status
+              const otherConfirmed = await bookingRepository.count({
+                where: { vehicle: { id: vehicle.id }, status: BOOKING_STATUS.CONFIRMED },
+              });
+
+              if (otherConfirmed === 0) {
+                vehicle.condition = undefined;
+                await vehicleRepository.save(vehicle);
+              }
+            }
+          }
+        }
+      } catch (vehErr) {
+        console.error("Vehicle condition update failed:", vehErr);
+      }
 
       if (booking.user?.id) {
         const recipientId = Number(booking.user.id);
@@ -388,7 +475,7 @@ export const bookingService = {
     try {
       const booking = await bookingRepository.findOne({
         where: { id: bookingId, user: { id: userId } },
-        relations: ["vehicle", "payments"],
+        relations: ["vehicle", "payments", "refundRequests"],
       });
 
       if (!booking) {
@@ -433,6 +520,19 @@ export const bookingService = {
             transactionId: payment.transactionId,
             paidAt: payment.paidAt,
           })),
+          refundRequest: (() => {
+            const latestRefund = getLatestRefundRequest(booking.refundRequests);
+            return latestRefund
+              ? {
+                  id: latestRefund.id,
+                  status: latestRefund.status,
+                  reason: latestRefund.reason,
+                  adminNotes: latestRefund.adminNotes,
+                  requestedAt: latestRefund.requestedAt,
+                  processedAt: latestRefund.processedAt,
+                }
+              : null;
+          })(),
           createdAt: booking.createdAt,
         },
       };
@@ -450,6 +550,7 @@ export const bookingService = {
     try {
       const booking = await bookingRepository.findOne({
         where: { id: bookingId, user: { id: userId } },
+        relations: ["payments", "refundRequests"],
       });
 
       if (!booking) {
@@ -471,8 +572,19 @@ export const bookingService = {
         };
       }
 
-      booking.status = BOOKING_STATUS.CANCELLED;
-      await bookingRepository.save(booking);
+      const hasSuccessfulPayment = booking.payments?.some(
+        (payment) => payment.status === PAYMENT_STATUS.SUCCESS
+      );
+
+      if (hasSuccessfulPayment) {
+        return {
+          status: false,
+          code: 400,
+          message: "This booking has already been paid. Please request a refund instead of cancelling directly.",
+        };
+      }
+
+      await this.updateBookingStatus(booking.id, BOOKING_STATUS.CANCELLED);
 
       await safeNotify(() =>
         notificationService.createForAdmins({
@@ -498,6 +610,185 @@ export const bookingService = {
         code: 500,
         message: "Internal Server Error",
       };
+    }
+  },
+
+  async requestRefund(bookingId: number, userId: number, reason: string) {
+    try {
+      const booking = await bookingRepository.findOne({
+        where: { id: bookingId, user: { id: userId } },
+        relations: ["vehicle", "payments", "refundRequests", "user"],
+      });
+
+      if (!booking) {
+        return { status: false, code: 404, message: "Booking not found" };
+      }
+
+      const hasSuccessfulPayment = booking.payments?.some((payment) => payment.status === PAYMENT_STATUS.SUCCESS);
+      if (!hasSuccessfulPayment) {
+        return { status: false, code: 400, message: "Refund requests are only available for paid bookings." };
+      }
+
+      const latestRefund = getLatestRefundRequest(booking.refundRequests);
+      if (latestRefund && [REFUND_REQUEST_STATUS.PENDING, REFUND_REQUEST_STATUS.APPROVED].includes(latestRefund.status)) {
+        return { status: false, code: 400, message: "A refund request already exists for this booking." };
+      }
+
+      const normalizedReason = reason?.trim();
+      if (!normalizedReason || normalizedReason.length < 20) {
+        return { status: false, code: 400, message: "Please provide a refund reason with at least 20 characters." };
+      }
+
+      const refundRequest = refundRequestRepository.create({
+        booking: { id: booking.id },
+        user: { id: userId },
+        reason: normalizedReason,
+        status: REFUND_REQUEST_STATUS.PENDING,
+        requestedAt: new Date(),
+      });
+
+      const savedRefund = await refundRequestRepository.save(refundRequest);
+
+      await safeNotify(() =>
+        notificationService.createForAdmins({
+          type: NOTIFICATION_TYPE.BOOKING_STATUS_UPDATED,
+          title: "Refund request submitted",
+          message: `Refund request submitted for booking #${booking.id}.`,
+          data: {
+            bookingId: booking.id,
+            refundRequestId: savedRefund.id,
+            route: "/admin/refunds",
+          },
+        })
+      );
+
+      return {
+        status: true,
+        code: 201,
+        message: "Refund request submitted successfully",
+        data: {
+          id: savedRefund.id,
+          bookingId: booking.id,
+          status: savedRefund.status,
+          reason: savedRefund.reason,
+          requestedAt: savedRefund.requestedAt,
+        },
+      };
+    } catch (error) {
+      console.error(error);
+      return { status: false, code: 500, message: "Internal Server Error" };
+    }
+  },
+
+  async getRefundRequests(page = 1, limit = 10, status?: string) {
+    try {
+      const query = refundRequestRepository
+        .createQueryBuilder("refundRequest")
+        .leftJoinAndSelect("refundRequest.booking", "booking")
+        .leftJoinAndSelect("booking.vehicle", "vehicle")
+        .leftJoinAndSelect("refundRequest.user", "user")
+        .leftJoinAndSelect("user.auth", "auth")
+        .orderBy("refundRequest.requestedAt", "DESC")
+        .skip((page - 1) * limit)
+        .take(limit);
+
+      if (status && status !== "all") {
+        query.andWhere("refundRequest.status = :status", { status });
+      }
+
+      const [refundRequests, total] = await query.getManyAndCount();
+
+      return {
+        status: true,
+        code: 200,
+        data: refundRequests.map((request) => ({
+          id: request.id,
+          bookingId: request.booking?.id,
+          user: {
+            id: request.user?.id,
+            name: request.user?.name,
+            email: request.user?.auth?.email,
+          },
+          vehicle: {
+            id: request.booking?.vehicle?.id,
+            name: request.booking?.vehicle?.name,
+            make: request.booking?.vehicle?.make,
+            model: request.booking?.vehicle?.model,
+          },
+          amount: request.booking?.finalAmount,
+          reason: request.reason,
+          status: request.status,
+          adminNotes: request.adminNotes,
+          requestedAt: request.requestedAt,
+          processedAt: request.processedAt,
+        })),
+        pagination: {
+          currentPage: page,
+          perPage: limit,
+          totalPages: Math.ceil(total / limit),
+          total,
+        },
+      };
+    } catch (error) {
+      console.error(error);
+      return { status: false, code: 500, message: "Internal Server Error" };
+    }
+  },
+
+  async reviewRefundRequest(refundRequestId: number, action: "Approve" | "Reject" | "Processed", adminUserId: number, adminNotes?: string) {
+    try {
+      const refundRequest = await refundRequestRepository.findOne({
+        where: { id: refundRequestId },
+        relations: ["booking", "booking.payments"],
+      });
+
+      if (!refundRequest) return { status: false, code: 404, message: "Refund request not found" };
+
+      if (action === "Reject") {
+        refundRequest.status = REFUND_REQUEST_STATUS.REJECTED;
+        refundRequest.adminNotes = adminNotes?.trim() || undefined;
+        refundRequest.processedAt = new Date();
+        refundRequest.processedBy = { id: adminUserId } as UserEntity;
+        await refundRequestRepository.save(refundRequest);
+        return { status: true, code: 200, message: "Refund request rejected" };
+      }
+
+      if (action === "Approve") {
+        refundRequest.status = REFUND_REQUEST_STATUS.APPROVED;
+        refundRequest.adminNotes = adminNotes?.trim() || refundRequest.adminNotes;
+        refundRequest.processedAt = new Date();
+        refundRequest.processedBy = { id: adminUserId } as UserEntity;
+
+        const booking = refundRequest.booking;
+        booking.status = BOOKING_STATUS.CANCELLED;
+        await bookingRepository.save(booking);
+
+        await refundRequestRepository.save(refundRequest);
+
+        return { status: true, code: 200, message: "Refund request approved" };
+      }
+
+      refundRequest.status = REFUND_REQUEST_STATUS.PROCESSED;
+      refundRequest.adminNotes = adminNotes?.trim() || refundRequest.adminNotes;
+      refundRequest.processedAt = new Date();
+      refundRequest.processedBy = { id: adminUserId } as UserEntity;
+      await refundRequestRepository.save(refundRequest);
+
+      for (const payment of refundRequest.booking?.payments || []) {
+        if (payment.status === PAYMENT_STATUS.SUCCESS || payment.status === PAYMENT_STATUS.CANCELLED) {
+          payment.status = PAYMENT_STATUS.REFUNDED;
+          payment.response = JSON.stringify({
+            reason: "refund_processed",
+            processedAt: new Date().toISOString(),
+          });
+          await paymentRepository.save(payment);
+        }
+      }
+
+      return { status: true, code: 200, message: "Refund marked as processed" };
+    } catch (error) {
+      console.error(error);
+      return { status: false, code: 500, message: "Internal Server Error" };
     }
   },
 
@@ -555,17 +846,97 @@ export const bookingService = {
         };
       }
 
-      const payment = paymentRepository.create({
-        booking: { id: booking.id },
-        amount: booking.finalAmount,
-        method,
-        status: PAYMENT_STATUS.PENDING,
+      const transactionUuid = crypto.randomUUID();
+
+      /**
+       * Payment initiation with deduplication.
+       *
+       * The `payment` table has a partial unique index that enforces:
+       *   only one row with status = 'Pending' per booking.
+       *
+       * Failed retries must reuse the existing pending row. If concurrent
+       * requests race, INSERT can hit a unique-constraint violation, then we
+       * fetch and reuse the existing pending record.
+       */
+      const isPendingPerBookingConstraintError = (error: unknown) => {
+        const pgError = error as { code?: string; constraint?: string };
+        return (
+          pgError?.code === "23505" &&
+          (pgError?.constraint === "idx_one_pending_per_booking" ||
+            pgError?.constraint === "ux_payment_one_pending_per_booking")
+        );
+      };
+
+      // Step 1: Try to reuse existing pending payment for this booking
+      let pendingPayment = await paymentRepository.findOne({
+        where: {
+          booking: { id: booking.id },
+          status: PAYMENT_STATUS.PENDING,
+        },
+        order: { createdAt: "DESC" },
       });
 
-      const savedPayment = await paymentRepository.save(payment);
-      const paymentId = savedPayment.id;
+      let reusedExisting = false;
+      let paymentId: number;
 
-      console.log(`Payment created: paymentId=${paymentId}, method=${method}, amount=${booking.finalAmount}`);
+      if (pendingPayment) {
+        pendingPayment.transactionUuid = transactionUuid;
+        pendingPayment.method = method;
+        pendingPayment.attemptCount = (pendingPayment.attemptCount || 0) + 1;
+        pendingPayment.lastAttemptedAt = new Date();
+        pendingPayment.status = PAYMENT_STATUS.PENDING;
+        await paymentRepository.save(pendingPayment);
+
+        reusedExisting = true;
+        paymentId = pendingPayment.id;
+      } else {
+        // Step 2: No pending found, create a new pending payment.
+        // If unique constraint fails due to race, refetch and reuse.
+        try {
+          const payment = paymentRepository.create({
+            booking: { id: booking.id },
+            amount: booking.finalAmount,
+            method,
+            status: PAYMENT_STATUS.PENDING,
+            transactionUuid,
+            attemptCount: 1,
+            lastAttemptedAt: new Date(),
+          });
+
+          const savedPayment = await paymentRepository.save(payment);
+          paymentId = savedPayment.id;
+        } catch (insertError) {
+          if (!isPendingPerBookingConstraintError(insertError)) {
+            throw insertError;
+          }
+
+          const racedPending = await paymentRepository.findOne({
+            where: {
+              booking: { id: booking.id },
+              status: PAYMENT_STATUS.PENDING,
+            },
+            order: { createdAt: "DESC" },
+          });
+
+          if (!racedPending?.id) {
+            throw insertError;
+          }
+
+          racedPending.transactionUuid = transactionUuid;
+          racedPending.method = method;
+          racedPending.attemptCount = (racedPending.attemptCount || 0) + 1;
+          racedPending.lastAttemptedAt = new Date();
+          racedPending.status = PAYMENT_STATUS.PENDING;
+          await paymentRepository.save(racedPending);
+
+          reusedExisting = true;
+          paymentId = racedPending.id;
+        }
+      }
+
+      console.log(
+        `[Payment Init] bookingId=${bookingId}, method=${method}, userId=${userId}, reusedExisting=${reusedExisting}, paymentId=${paymentId}`
+      );
 
       if (!paymentId) {
         return {
@@ -581,7 +952,7 @@ export const bookingService = {
         if (method === PAYMENT_METHOD.ESEWA) {
           paymentGatewayData = this.generateEsewaPayload(
             booking,
-            paymentId
+            transactionUuid
           );
           console.log(`eSewa payload generated:`, paymentGatewayData);
         } else if (method === PAYMENT_METHOD.KHALTI) {
@@ -624,6 +995,7 @@ export const bookingService = {
           bookingId: booking.id,
           amount: booking.finalAmount,
           method,
+          reusedExisting,
           paymentGateway: paymentGatewayData,
         },
       };
@@ -646,8 +1018,8 @@ export const bookingService = {
     productCode: string
   ): string {
     try {
-      // Use ESEWA_SECRET env variable (matching reference implementation)
-      const secretKey = process.env.ESEWA_SECRET || "8gBm/:&EnhH.1/q";
+      // Use the sandbox secret by default, with fallback to the legacy env name.
+      const secretKey = process.env.ESEWA_SECRET_KEY || process.env.ESEWA_SECRET || "8gBm/:&EnhH.1/q";
       
       // Ensure all values are strings and trimmed
       const totalAmountStr = String(totalAmount).trim();
@@ -657,12 +1029,12 @@ export const bookingService = {
       // Signature data format: total_amount=X,transaction_uuid=Y,product_code=Z
       const signableData = `total_amount=${totalAmountStr},transaction_uuid=${transactionUuidStr},product_code=${productCodeStr}`;
       
-      console.log("🔐 eSewa Signature Generation:", {
-        total_amount: totalAmountStr,
-        transaction_uuid: transactionUuidStr,
-        product_code: productCodeStr,
-        signableData,
-      });
+      console.log("=== eSewa Signature Generation ===");
+      console.log("total_amount:", totalAmountStr);
+      console.log("transaction_uuid:", transactionUuidStr);
+      console.log("product_code:", productCodeStr);
+      console.log("Message to sign:", signableData);
+      console.log("Secret key length:", secretKey?.length || 0);
       
       // Create HMAC SHA256 hash and encode it in Base64
       const hash = crypto
@@ -670,7 +1042,8 @@ export const bookingService = {
         .update(signableData)
         .digest("base64");
       
-      console.log("✅ Generated Signature (base64):", hash);
+      console.log("Generated signature:", hash);
+      console.log("===================================");
       return hash;
     } catch (error) {
       console.error("❌ Error generating eSewa signature:", error);
@@ -678,12 +1051,33 @@ export const bookingService = {
     }
   },
 
-  generateEsewaPayload(booking: BookingEntity, paymentId: number) {
+  generateEsewaPayload(booking: BookingEntity, transactionUuid: string) {
     // Use environment variables matching reference implementation
-    const productCode = process.env.ESEWA_MERCHANT_ID || "EPAYTEST";
+    const productCode = process.env.ESEWA_MERCHANT_CODE || process.env.ESEWA_MERCHANT_ID || "EPAYTEST";
     const successUrl = process.env.SUCCESS_URL || `${process.env.BACKEND_URL || "http://localhost:3000"}/api/v1/bookings/payment/callback/esewa`;
     const failureUrl = process.env.FAILURE_URL || `${process.env.FRONTEND_URL || "http://localhost:5173"}/booking/payment/failure`;
-    const esewaPaymentUrl = process.env.ESEWA_PAYMENT_URL || "https://rc-epay.esewa.com.np/api/epay/main/v2/form";
+    const normalizeEsewaPaymentUrl = (url: string) => {
+      const trimmedUrl = String(url || "").trim();
+
+      if (!trimmedUrl) {
+        return "https://rc-epay.esewa.com.np/api/epay/main/v2/form";
+      }
+
+      return trimmedUrl
+        .replace(/\/api\/epay\/login(?:[?#].*)?$/i, "/api/epay/main/v2/form")
+        .replace(/\/api\/epay\/main(?:[?#].*)?$/i, "/api/epay/main/v2/form")
+        .replace(/\/epay\/main(?:[?#].*)?$/i, "/api/epay/main/v2/form");
+    };
+
+    const rawEsewaPaymentUrl = process.env.ESEWA_API_URL || process.env.ESEWA_PAYMENT_URL || "https://rc-epay.esewa.com.np/api/epay/main/v2/form";
+    const esewaPaymentUrl = normalizeEsewaPaymentUrl(rawEsewaPaymentUrl);
+
+    if (rawEsewaPaymentUrl !== esewaPaymentUrl) {
+      console.warn("⚠️ Normalized legacy eSewa endpoint:", {
+        rawEsewaPaymentUrl,
+        esewaPaymentUrl,
+      });
+    }
     
     // eSewa API v2 expects amount in rupees
     const amount = Math.round(Number(booking.finalAmount)).toString();
@@ -692,8 +1086,6 @@ export const bookingService = {
     const productDeliveryCharge = "0";
     // total_amount = amount + tax_amount + product_service_charge + product_delivery_charge
     const totalAmount = (parseInt(amount) + parseInt(taxAmount) + parseInt(productServiceCharge) + parseInt(productDeliveryCharge)).toString();
-    // Transaction UUID - must be unique, supports alphanumeric and hyphen(-) only
-    const transactionUuid = `${booking.id}-${paymentId}-${Date.now()}`;
 
     // Calculate signature
     const signature = this.generateEsewaSignature(totalAmount, transactionUuid, productCode);
@@ -715,6 +1107,8 @@ export const bookingService = {
       esewaUrl: esewaPaymentUrl,
     };
 
+    console.log("📋 eSewa request payload:", payload);
+    console.log("📡 eSewa endpoint:", esewaPaymentUrl);
     console.log("📋 Generated eSewa Payload:", payload);
 
     return payload;
@@ -724,13 +1118,12 @@ export const bookingService = {
     // Use sandbox/test environment by default, production in live
     const isProduction = process.env.NODE_ENV === "production";
     const khaltiSecretKey = process.env.KHALTI_SECRET_KEY || "live_secret_key_68791341fdd94846a146f0457ff7b455";
-    const returnUrl = process.env.KHALTI_RETURN_URL || `${process.env.BACKEND_URL || "http://localhost:3000"}/api/v1/bookings/payment/callback/khalti`;
     const websiteUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+    const returnUrl = process.env.KHALTI_RETURN_URL || `${websiteUrl}/booking/payment/success`;
     
-    // Khalti API endpoints
-    const khaltiApiUrl = isProduction 
-      ? "https://khalti.com/api/v2/epayment/initiate/"
-      : "https://dev.khalti.com/api/v2/epayment/initiate/";
+    // Khalti API base (prefer environment variable)
+    const khaltiBase = process.env.KHALTI_API_URL || "https://dev.khalti.com/api/v2";
+    const khaltiApiUrl = `${khaltiBase.replace(/\/$/, '')}/epayment/initiate/`;
     
     // Khalti expects amount in paisa (1 NPR = 100 paisa)
     const amountInPaisa = Math.round(Number(booking.finalAmount) * 100);
@@ -761,16 +1154,54 @@ export const bookingService = {
     console.log("📡 Calling Khalti API:", khaltiApiUrl);
 
     try {
+      const headers = {
+        Authorization: `Key ${khaltiSecretKey}`,
+        "Content-Type": "application/json",
+      } as Record<string, string>;
+
       const response = await fetch(khaltiApiUrl, {
         method: "POST",
-        headers: {
-          "Authorization": `Key ${khaltiSecretKey}`,
-          "Content-Type": "application/json",
-        },
+        headers,
         body: JSON.stringify(requestPayload),
       });
 
-      const data = await response.json();
+      // Always log status for debugging
+      console.log(`📡 Khalti response status: ${response.status} ${response.statusText}`);
+
+      if (!response.ok) {
+        // Attempt to read response body (text) for clearer error details
+        let errorBody: string;
+        try {
+          errorBody = await response.text();
+        } catch (e) {
+          errorBody = `Could not read response body: ${String(e)}`;
+        }
+
+        console.error("❌ Khalti 400/5xx error response:", errorBody);
+        console.error("📤 Request payload sent to Khalti:", JSON.stringify(requestPayload));
+        console.error("📤 Request headers sent to Khalti:", headers);
+
+        // Try to parse JSON error details if possible and log them
+        try {
+          const parsed = JSON.parse(errorBody);
+          console.error("🔎 Parsed Khalti error:", parsed);
+        } catch (e) {
+          // ignore parse errors
+        }
+
+        return null;
+      }
+
+      let data: any;
+      try {
+        data = await response.json();
+      } catch (e) {
+        console.error("❌ Failed to parse Khalti JSON response:", String(e));
+        const text = await response.text().catch(() => "(no body)");
+        console.error("📥 Raw Khalti response body:", text);
+        return null;
+      }
+
       console.log("📥 Khalti API Response:", data);
 
       if (data.pidx && data.payment_url) {
@@ -846,8 +1277,7 @@ export const bookingService = {
         });
 
         if (booking) {
-          booking.status = BOOKING_STATUS.CONFIRMED;
-          await bookingRepository.save(booking);
+          await this.updateBookingStatus(booking.id, BOOKING_STATUS.CONFIRMED);
           console.log(`✅ Booking ${booking.id} confirmed after Khalti payment`);
         }
 
@@ -940,20 +1370,31 @@ export const bookingService = {
       const khaltiSecretKey = process.env.KHALTI_SECRET_KEY || "live_secret_key_68791341fdd94846a146f0457ff7b455";
       
       // Use sandbox/test environment for development
-      const lookupUrl = isProduction
-        ? "https://khalti.com/api/v2/epayment/lookup/"
-        : "https://dev.khalti.com/api/v2/epayment/lookup/";
+      const khaltiBaseLookup = process.env.KHALTI_API_URL || "https://dev.khalti.com/api/v2";
+      const lookupUrl = `${khaltiBaseLookup.replace(/\/$/, '')}/epayment/lookup/`;
       
       console.log("📡 Verifying Khalti payment:", { pidx, lookupUrl });
       
+      const headers = {
+        Authorization: `Key ${khaltiSecretKey}`,
+        "Content-Type": "application/json",
+      } as Record<string, string>;
+
       const response = await fetch(lookupUrl, {
         method: "POST",
-        headers: {
-          "Authorization": `Key ${khaltiSecretKey}`,
-          "Content-Type": "application/json",
-        },
+        headers,
         body: JSON.stringify({ pidx }),
       });
+
+      console.log(`📡 Khalti lookup response status: ${response.status} ${response.statusText}`);
+
+      if (!response.ok) {
+        const errorBody = await response.text().catch(() => "(no body)");
+        console.error("❌ Khalti lookup error response:", errorBody);
+        console.error("📤 Khalti lookup request headers:", headers);
+        console.error("📤 Khalti lookup request payload:", JSON.stringify({ pidx }));
+        return { success: false, data: null };
+      }
 
       const data = await response.json();
       console.log("Khalti verification response:", data);
@@ -970,7 +1411,7 @@ export const bookingService = {
 
   verifyEsewaResponseSignature(responseData: any): boolean {
     try {
-      const secretKey = process.env.ESEWA_SECRET || "8gBm/:&EnhH.1/q";
+      const secretKey = process.env.ESEWA_SECRET_KEY || process.env.ESEWA_SECRET || "8gBm/:&EnhH.1/q";
       const responseSignature = responseData.signature;
       const signedFieldNames = responseData.signed_field_names || "";
       
@@ -1012,28 +1453,13 @@ export const bookingService = {
     try {
       console.log("📥 Processing eSewa callback...", { transactionUuid, transactionCode, totalAmount, status });
 
-      // Parse transaction_uuid to get booking and payment IDs
-      // Format: bookingId-paymentId-timestamp (hyphen separator)
-      const uuidParts = transactionUuid.split("-");
-      if (uuidParts.length < 2) {
-        console.error("❌ Invalid transaction_uuid format:", transactionUuid);
-        return {
-          status: false,
-          code: 400,
-          message: "Invalid transaction UUID format",
-        };
-      }
-
-      const bookingId = parseInt(uuidParts[0]);
-      const paymentId = parseInt(uuidParts[1]);
-
       const payment = await paymentRepository.findOne({
-        where: { id: paymentId },
+        where: { transactionUuid },
         relations: ["booking", "booking.user"],
       });
 
       if (!payment) {
-        console.error(`❌ Payment not found: id=${paymentId}`);
+        console.error(`❌ Payment not found for transactionUuid=${transactionUuid}`);
         return {
           status: false,
           code: 404,
@@ -1041,16 +1467,55 @@ export const bookingService = {
         };
       }
 
+      if (Number(payment.amount) !== Number(totalAmount)) {
+        console.error("❌ eSewa amount mismatch:", {
+          storedAmount: payment.amount,
+          callbackAmount: totalAmount,
+          transactionUuid,
+        });
+        return {
+          status: false,
+          code: 400,
+          message: "Payment amount mismatch",
+        };
+      }
+
+      if (payment.status === PAYMENT_STATUS.SUCCESS) {
+        return {
+          status: true,
+          code: 200,
+          message: "Payment already processed",
+          data: {
+            bookingId: payment.booking?.id,
+            paymentId: payment.id,
+            transactionId: payment.transactionId,
+          },
+        };
+      }
+
+      if (payment.status !== PAYMENT_STATUS.PENDING && payment.status !== PAYMENT_STATUS.CANCELLED) {
+        return {
+          status: false,
+          code: 409,
+          message: "Payment is no longer pending",
+        };
+      }
+
       // Check if payment status is COMPLETE
       if (status === "COMPLETE" && transactionCode) {
         payment.status = PAYMENT_STATUS.SUCCESS;
         payment.transactionId = transactionCode;
+        payment.response = JSON.stringify({
+          transactionUuid,
+          transactionCode,
+          totalAmount,
+          status,
+        });
         payment.paidAt = new Date();
         await paymentRepository.save(payment);
 
         const booking = payment.booking;
-        booking.status = BOOKING_STATUS.CONFIRMED;
-        await bookingRepository.save(booking);
+        await this.updateBookingStatus(booking.id, BOOKING_STATUS.CONFIRMED);
 
         if (payment.booking?.user?.id) {
           const recipientId = Number(payment.booking.user.id);
@@ -1061,10 +1526,10 @@ export const bookingService = {
               recipientRole: USER_ROLE.USER,
               type: NOTIFICATION_TYPE.PAYMENT_SUCCESS,
               title: "Payment successful",
-              message: `Payment for booking #${bookingId} was completed successfully.`,
+              message: `Payment for booking #${booking.id} was completed successfully.`,
               data: {
-                bookingId,
-                paymentId,
+                bookingId: booking.id,
+                paymentId: payment.id,
                 transactionId: transactionCode,
                 route: "/bookings",
               },
@@ -1072,16 +1537,25 @@ export const bookingService = {
           );
         }
 
-        console.log(`✅ Payment COMPLETE: booking=${bookingId}, transactionCode=${transactionCode}`);
+        console.log(`✅ Payment COMPLETE: booking=${booking.id}, transactionCode=${transactionCode}`);
         return {
           status: true,
           code: 200,
           message: "Payment completed",
-          data: { bookingId, paymentId, transactionId: transactionCode },
+          data: { bookingId: booking.id, paymentId: payment.id, transactionId: transactionCode },
         };
       }
 
       console.error(`❌ Payment not complete. Status: ${status}`);
+
+      payment.status = PAYMENT_STATUS.FAILED;
+      payment.response = JSON.stringify({
+        transactionUuid,
+        transactionCode,
+        totalAmount,
+        status,
+      });
+      await paymentRepository.save(payment);
 
       if (payment.booking?.user?.id) {
         const recipientId = Number(payment.booking.user.id);
@@ -1092,10 +1566,10 @@ export const bookingService = {
             recipientRole: USER_ROLE.USER,
             type: NOTIFICATION_TYPE.PAYMENT_FAILED,
             title: "Payment not completed",
-            message: `Payment for booking #${bookingId} finished with status ${status}.`,
+            message: `Payment for booking #${payment.booking.id} finished with status ${status}.`,
             data: {
-              bookingId,
-              paymentId,
+              bookingId: payment.booking.id,
+              paymentId: payment.id,
               route: "/bookings",
             },
           })
@@ -1106,10 +1580,10 @@ export const bookingService = {
         notificationService.createForAdmins({
           type: NOTIFICATION_TYPE.PAYMENT_FAILED,
           title: "Payment not completed",
-          message: `Booking #${bookingId} payment returned status ${status}.`,
+            message: `Booking #${payment.booking.id} payment returned status ${status}.`,
           data: {
-            bookingId,
-            paymentId,
+              bookingId: payment.booking.id,
+              paymentId: payment.id,
             route: "/admin/payments",
           },
         })
@@ -1132,7 +1606,7 @@ export const bookingService = {
 
   async checkEsewaPaymentStatus(transactionUuid: string, amount: number) {
     try {
-      const productCode = process.env.ESEWA_MERCHANT_ID || "EPAYTEST";
+      const productCode = process.env.ESEWA_MERCHANT_CODE || process.env.ESEWA_MERCHANT_ID || "EPAYTEST";
       const statusCheckUrl = process.env.ESEWA_PAYMENT_STATUS_CHECK_URL || "https://rc.esewa.com.np/api/epay/transaction/status/";
       const totalAmount = Number(amount).toFixed(2);
 
@@ -1439,19 +1913,21 @@ export const bookingService = {
       const failedCount = await paymentRepository.count({ where: { status: PAYMENT_STATUS.FAILED } });
       const cancelledCount = await paymentRepository.count({ where: { status: PAYMENT_STATUS.CANCELLED } });
 
-      // Calculate total revenue from successful payments
-      const successfulPayments = await paymentRepository.find({
-        where: { status: PAYMENT_STATUS.SUCCESS },
-        select: ["amount"],
-      });
-      const totalRevenue = successfulPayments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+      // Calculate total revenue from successful payments (explicit SUM)
+      const successfulRow = await paymentRepository
+        .createQueryBuilder("payment")
+        .select("COALESCE(SUM(payment.amount), 0)", "total")
+        .where("payment.status = :status", { status: PAYMENT_STATUS.SUCCESS })
+        .getRawOne<{ total: string }>();
 
-      // Calculate pending revenue from pending payments
-      const pendingPayments = await paymentRepository.find({
-        where: { status: PAYMENT_STATUS.PENDING },
-        select: ["amount"],
-      });
-      const pendingRevenue = pendingPayments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+      const pendingRow = await paymentRepository
+        .createQueryBuilder("payment")
+        .select("COALESCE(SUM(payment.amount), 0)", "total")
+        .where("payment.status = :status", { status: PAYMENT_STATUS.PENDING })
+        .getRawOne<{ total: string }>();
+
+      const totalRevenue = Number((successfulRow && successfulRow.total) || 0);
+      const pendingRevenue = Number((pendingRow && pendingRow.total) || 0);
 
       // Get eSewa vs Khalti breakdown
       const esewaCount = await paymentRepository.count({ where: { method: PAYMENT_METHOD.ESEWA, status: PAYMENT_STATUS.SUCCESS } });

@@ -72,6 +72,7 @@ import Loading from "../../components/common/loading";
 import Pagination from "../../components/common/Pagination";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
 import AdminDocumentReviewComponent from "../../components/adminComp/AdminDocumentReviewComponent";
+import { formatPhoneNumber } from "../../lib/phone";
 
 import {
   getDashboardStats,
@@ -171,6 +172,16 @@ const AdminDashboard = () => {
     vehicleColor,
     dispatch
   ]);
+
+  useEffect(() => {
+    if (login !== "admin") return;
+
+    const intervalId = setInterval(() => {
+      dispatch(getDashboardStats());
+    }, 30_000);
+
+    return () => clearInterval(intervalId);
+  }, [login, dispatch]);
 
   const handleLogout = () => {
     dispatch(userLogout()).then(() => {
@@ -667,7 +678,7 @@ const AdminDashboard = () => {
                     <TableRow key={s.id} className="hover:bg-gray-100">
                       <TableCell>{s.storeName}</TableCell>
                       <TableCell>{s.email}</TableCell>
-                      <TableCell>{s.phoneNumber}</TableCell>
+                      <TableCell>{formatPhoneNumber(s.phoneNumber) || "N/A"}</TableCell>
                       <TableCell>
                         <Badge className={s.isVerified ? "bg-green text-white" : "bg-yellow-500 text-white"}>
                           {s.isVerified ? "Verified" : "Pending"}
@@ -1062,7 +1073,7 @@ const AdminDashboard = () => {
                         </div>
                         <div>
                           <p className="font-bold text-gray-900">{selectedVehicle.uploader.name}</p>
-                          <p className="text-sm text-gray-600">{selectedVehicle.uploader.phoneNumber}</p>
+                          <p className="text-sm text-gray-600">{formatPhoneNumber(selectedVehicle.uploader.phoneNumber)}</p>
                         </div>
                       </div>
                     </div>
@@ -1141,7 +1152,7 @@ const AdminDashboard = () => {
                     </div>
                     <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
                       <p className="text-sm text-gray-500 mb-1">Phone Number</p>
-                      <p className="font-bold text-gray-900">{selectedUser.phoneNumber || "Not provided"}</p>
+                      <p className="font-bold text-gray-900">{formatPhoneNumber(selectedUser.phoneNumber) || "Not provided"}</p>
                     </div>
                   </div>
                 </div>

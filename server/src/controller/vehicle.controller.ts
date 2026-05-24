@@ -4,11 +4,17 @@ import vehicleService from "../service/vehicle.service";
 
 const vehicleController = {
   async createVehicle(req: Request, res: Response) {
-    const result = await vehicleService.createVehicle(req);
+    const result: any = await vehicleService.createVehicle(req);
     sendResponse(res, {
       status: result?.status,
       message: result?.message,
       httpCode: result?.code,
+      errorCode: result?.errorCode,
+      limitType: result?.limitType,
+      currentCount: result?.currentCount,
+      limit: result?.limit,
+      resetAt: result?.resetAt,
+      retryAfter: result?.retryAfter,
     });
   },
 

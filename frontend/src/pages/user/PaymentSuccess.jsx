@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { CheckCircle, ArrowRight, Calendar } from "lucide-react";
 import { Button } from "../../components/ui/button";
@@ -9,9 +9,40 @@ const PaymentSuccess = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const bookingId = searchParams.get("bookingId");
+  const pidx = searchParams.get("pidx");
+  const [verifying, setVerifying] = useState(false);
+  const [verifyError, setVerifyError] = useState(null);
 
   useEffect(() => {
-    // Optionally fetch booking details here
+    // If we were redirected from Khalti with a pidx, verify it with backend
+    if (pidx) {
+      (async () => {
+        setVerifying(true);
+        try {
+          const resp = await fetch(`/api/v1/bookings/payment/verify?pidx=${encodeURIComponent(pidx)}`);
+          const result = await resp.json();
+          if (resp.ok && result.status) {
+            // If backend processed and returned bookingId, we can show it (result.data)
+            // If redirect included bookingId already, that's still shown via query param
+            // Optionally navigate to bookings page or update UI
+            // If result.data.bookingId present, navigate to bookings
+            if (result.data?.bookingId) {
+              // Replace URL to include bookingId for display
+              const params = new URLSearchParams(window.location.search);
+              params.set('bookingId', String(result.data.bookingId));
+              const newUrl = `${window.location.pathname}?${params.toString()}`;
+              window.history.replaceState({}, '', newUrl);
+            }
+          } else {
+            setVerifyError(result.message || 'Payment verification failed');
+          }
+        } catch (e) {
+          setVerifyError('Network error while verifying payment');
+        } finally {
+          setVerifying(false);
+        }
+      })();
+    }
   }, [bookingId]);
 
   return (
@@ -34,6 +65,12 @@ const PaymentSuccess = () => {
           </p>
 
           {/* Booking ID */}
+          {verifying && (
+            <div className="mb-4 text-sm text-gray-600">Verifying payment, please wait...</div>
+          )}
+          {verifyError && (
+            <div className="mb-4 text-sm text-red-600">{verifyError}</div>
+          )}
           {bookingId && (
             <div className="bg-gray-50 rounded-lg p-4 mb-6">
               <p className="text-sm text-gray-500">Booking ID</p>

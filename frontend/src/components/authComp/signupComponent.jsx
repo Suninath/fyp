@@ -1,9 +1,15 @@
 import React, { useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
-import { useForm } from "react-hook-form";
+import { Controller, useForm, useWatch } from "react-hook-form";
 import * as yup from "yup";
 import { yupResolver } from "@hookform/resolvers/yup";
 import { useDispatch } from "react-redux";
+import { ErrorToast } from "../common/toast";
+import PhoneInput from "../common/PhoneInput";
+import {
+  NEPALI_MOBILE_PHONE_REGEX,
+  getPhoneValidationState,
+} from "../../lib/phone";
 import { userSignup } from "../../rtk/thunk/authThunk";
 
 function SignupComponent() {
@@ -21,7 +27,10 @@ function SignupComponent() {
     phoneNumber: yup
       .string()
       .required("Enter phone number")
-      .matches(/^[0-9]{10}$/, "Phone number must be exactly 10 digits"),
+      .matches(
+        NEPALI_MOBILE_PHONE_REGEX,
+        "Phone number must be a valid 10-digit Nepali mobile number",
+      ),
     password: yup.string().required("Enter your password"),
     confirmpassword: yup
       .string()
@@ -30,18 +39,33 @@ function SignupComponent() {
   });
 
   const {
+    control,
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
   } = useForm({
     resolver: yupResolver(signupSchema),
+    defaultValues: {
+      name: "",
+      email: "",
+      phoneNumber: "",
+      password: "",
+      confirmpassword: "",
+    },
   });
+
+  const watchedPhoneNumber = useWatch({ control, name: "phoneNumber" }) || "";
+  const phoneValidation = getPhoneValidationState(watchedPhoneNumber);
 
   const onSubmit = async (data) => {
     const result = await dispatch(userSignup(data));
     if (userSignup.fulfilled.match(result)) {
       navigate("/verifyOtp");
     }
+  };
+
+  const handleInvalidPhone = () => {
+    ErrorToast({ message: "Please enter a valid 10-digit Nepali mobile number" });
   };
 
   return (
@@ -80,7 +104,7 @@ function SignupComponent() {
 
           {/* Form */}
           <form
-            onSubmit={handleSubmit(onSubmit)}
+            onSubmit={handleSubmit(onSubmit, handleInvalidPhone)}
             autoComplete="off"
             className="px-5 sm:px-6 py-4 space-y-3">
             {/* Name Field */}
@@ -110,17 +134,22 @@ function SignupComponent() {
             </div>
 
             {/* Phone */}
-            <div className="flex flex-col">
-              <label className="text-sm font-medium text-gray-700">Phone Number</label>
-              <input
-                type="text"
-                {...register("phoneNumber")}
-                className={`mt-1 w-full h-9 px-3 rounded-md border ${
-                  errors.phoneNumber ? "border-red" : "border-gray-300"
-                } focus:outline-none focus:ring-2 focus:ring-purple focus:border-purple`}
-              />
-              <p className="mt-1 text-xs text-red min-h-[1rem]">{errors.phoneNumber?.message || " "}</p>
-            </div>
+            <Controller
+              control={control}
+              name="phoneNumber"
+              render={({ field }) => (
+                <PhoneInput
+                  id="phoneNumber"
+                  label="Phone Number"
+                  value={field.value}
+                  onChange={field.onChange}
+                  error={errors.phoneNumber?.message}
+                  required
+                  className="space-y-1"
+                  inputClassName="mt-1"
+                />
+              )}
+            />
 
             {/* Password */}
             <div className="flex flex-col relative">
@@ -165,8 +194,8 @@ function SignupComponent() {
             {/* Submit Button */}
             <button
               type="submit"
-              disabled={isSubmitting}
-              className="w-full h-10 rounded-lg bg-purple hover:opacity-90 text-white text-sm font-bold tracking-wide shadow-lg disabled:opacity-70 disabled:cursor-not-allowed transition-all hover:scale-[1.02] active:scale-95"
+              disabled={isSubmitting || !phoneValidation.isValid}
+              className="w-full h-10 rounded-lg bg-purple hover:opacity-90 text-white text-sm font-bold tracking-wide shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:scale-[1.02] active:scale-95"
             >
               {isSubmitting ? (
                 <span className="flex items-center justify-center">

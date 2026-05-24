@@ -10,6 +10,7 @@ import AppDataSource from "./config/db.config";
 import { setupSocketIO } from "./config/socket.config";
 import { UserEntity } from "./entities/user.entity";
 import { scheduleBookingAutoCancellation } from "./scheduler/bookingAutoCancel.scheduler";
+import { scheduleCancelStalePayments } from "./scheduler/cancelStalePayments.scheduler";
 
 const startServer = async () => {
   try {
@@ -77,6 +78,7 @@ const startServer = async () => {
       .execute();
 
     scheduleBookingAutoCancellation();
+      scheduleCancelStalePayments();
 
     const port = process.env.PORT || 8080;
     httpServer.listen(port, () =>

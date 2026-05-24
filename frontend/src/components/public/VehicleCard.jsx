@@ -13,16 +13,25 @@ import {
 import { Button } from "../../ui/ui/button";
 import useFavorites from "../../hooks/useFavorites";
 
-const getConditionMeta = (condition) => {
-  if (condition === "sold") {
-    return { label: "Sold", className: "bg-red-600 text-white" };
+const badgeConfig = {
+  available: { bg: "bg-emerald-600 text-white", text: "Available", dot: "bg-emerald-300" },
+  reserved: { bg: "bg-amber-500 text-white", text: "Reserved", dot: "bg-amber-200" },
+  booked: { bg: "bg-red-600 text-white", text: "Booked", dot: "bg-red-200" },
+};
+
+const getBadgeMeta = (vehicle) => {
+  if (!vehicle) return { label: "Available", className: "bg-black text-white", dotClass: "bg-white" };
+
+  if (vehicle.category === "Renting") {
+    const status = vehicle.availabilityStatus || "available";
+    const cfg = badgeConfig[status] || badgeConfig.available;
+    return { label: cfg.text, className: cfg.bg, dotClass: cfg.dot, status };
   }
 
-  if (condition === "reserved" || condition === "pending") {
-    return { label: "Reserved", className: "bg-amber-600 text-white" };
-  }
+  if (vehicle.condition === "sold") return { label: "Sold", className: "bg-red-600 text-white", dotClass: "bg-white" };
+  if (vehicle.condition === "reserved" || vehicle.condition === "pending") return { label: "Reserved", className: "bg-amber-600 text-white", dotClass: "bg-white" };
 
-  return { label: "Available", className: "bg-black text-white" };
+  return { label: "Available", className: "bg-black text-white", dotClass: "bg-white" };
 };
 
 const formatMileage = (value) => {
@@ -69,7 +78,7 @@ const VehicleCard = ({
 
   const images = Array.isArray(vehicle?.images) ? vehicle.images : [];
   const favorite = isFavorite(vehicle?.id);
-  const conditionMeta = getConditionMeta(vehicle?.condition);
+  const conditionMeta = getBadgeMeta(vehicle);
 
   const shouldShowImage = showImage ?? true;
   const shouldShowFavorite = showFavorite ?? variant !== "owner";
@@ -121,7 +130,7 @@ const VehicleCard = ({
         <div className="relative overflow-hidden rounded-t-2xl bg-gradient-to-br from-slate-100 to-slate-200 p-5 sm:p-6">
           <div className="absolute left-4 top-4 z-10">
               <span className={`absolute top-3 left-3 z-10 inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold shadow-md ${conditionMeta.className}`}>
-              <span className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-white" />
+              <span className={`mr-1.5 inline-block h-1.5 w-1.5 rounded-full ${conditionMeta.dotClass || 'bg-white'}`} />
               {conditionMeta.label}
             </span>
           </div>
@@ -206,7 +215,7 @@ const VehicleCard = ({
 
             <div className="absolute left-3 top-3 z-10">
                 <span className={`absolute top-3 left-3 z-10 inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold shadow-md ${conditionMeta.className}`}>
-                <span className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-white" />
+                <span className={`mr-1.5 inline-block h-1.5 w-1.5 rounded-full ${conditionMeta.dotClass || 'bg-white'}`} />
                 {conditionMeta.label}
               </span>
             </div>
@@ -350,11 +359,18 @@ const VehicleCard = ({
         </p>
       </div>
 
-      <div className="py-2 sm:py-2.5 px-3 border-l-4 border-primary bg-primary/5 rounded">
+            <div className="py-2 sm:py-2.5 px-3 border-l-4 border-primary bg-primary/5 rounded">
         <p className="text-[9px] sm:text-[10px] text-primary font-bold uppercase tracking-wider mb-0.5">Price</p>
         <p className="text-base sm:text-lg md:text-xl font-black text-primary leading-tight">
           Rs. {parseFloat(vehicle?.price)?.toLocaleString("en-IN")}
         </p>
+        {/* contextual small status text for rentals */}
+        {vehicle?.category === "Renting" && conditionMeta?.status === "reserved" && vehicle?.nextStartDate && (
+          <p className="mt-1 text-xs text-amber-700">Available from {new Date(vehicle.nextStartDate).toLocaleDateString()}</p>
+        )}
+        {vehicle?.category === "Renting" && conditionMeta?.status === "booked" && vehicle?.bookedUntil && (
+          <p className="mt-1 text-xs text-red-600">Next available: {new Date(vehicle.bookedUntil).toLocaleDateString()}</p>
+        )}
       </div>
 
       <div className={`grid ${specGridColumns} gap-3 items-stretch`}> 

@@ -164,7 +164,7 @@ State: {
 ```javascript
 // Configuration
 Merchant Code: EPAYTEST (test environment)
-Environment: https://uat.esewa.com.np/epay/main
+Environment: https://rc-epay.esewa.com.np/api/epay/main/v2/form
 
 // Payload Structure
 {
@@ -216,9 +216,9 @@ Payment Method: Bank transfer with reference code
 Create `.env` file in backend with:
 ```
 # eSewa Configuration
-ESEWA_MERCHANT_ID=EPAYTEST
-ESEWA_SECRET=8gBm/:&EnhH.1/q
-ESEWA_PAYMENT_URL=https://rc-epay.esewa.com.np/api/epay/main/v2/form
+ESEWA_MERCHANT_CODE=EPAYTEST
+ESEWA_SECRET_KEY=8gBm/:&EnhH.1/q
+ESEWA_API_URL=https://rc-epay.esewa.com.np/api/epay/main/v2/form
 
 # Khalti Configuration (KPG-2)
 # Get live_secret_key from https://test-admin.khalti.com/ (sandbox) or https://admin.khalti.com/ (prod)

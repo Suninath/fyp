@@ -10,6 +10,8 @@ import { Textarea } from "../../ui/ui/textarea";
 import { createVehicle, getPublicVehicles } from "../../rtk/thunk/vehicleThunk";
 import { CheckCircle2, Loader2, Plus, Upload, X } from "lucide-react";
 import { ErrorToast } from "../common/toast";
+import toast from "react-hot-toast";
+import { isUserVerified } from "../../lib/verification";
 
 const MAX_FILES = 5;
 const MAX_SIZE = 5 * 1024 * 1024;
@@ -53,6 +55,7 @@ const CreateVehicleForm = () => {
   const [errors, setErrors] = useState({});
   const [images, setImages] = useState([]);
   const [submitting, setSubmitting] = useState(false);
+  const [rateLimitNotice, setRateLimitNotice] = useState(null);
   const fileInputRef = useRef(null);
   const redirectTimerRef = useRef(null);
 
@@ -70,6 +73,22 @@ const CreateVehicleForm = () => {
       if (redirectTimerRef.current) clearTimeout(redirectTimerRef.current);
     };
   }, [images]);
+
+  useEffect(() => {
+    if (!rateLimitNotice?.resetAt) return undefined;
+
+    const resetAtMs = new Date(rateLimitNotice.resetAt).getTime();
+    if (Number.isNaN(resetAtMs) || resetAtMs <= Date.now()) {
+      setRateLimitNotice(null);
+      return undefined;
+    }
+
+    const timeoutId = setTimeout(() => {
+      setRateLimitNotice(null);
+    }, resetAtMs - Date.now());
+
+    return () => clearTimeout(timeoutId);
+  }, [rateLimitNotice]);
 
   const years = useMemo(
     () => Array.from({ length: CURRENT_YEAR - 1980 + 1 }, (_, index) => CURRENT_YEAR - index),
@@ -116,11 +135,79 @@ const CreateVehicleForm = () => {
     setImages((previous) => previous.filter((_, imageIndex) => imageIndex !== index));
   };
 
+  const formatDateLabel = (value) => {
+    if (!value) return "";
+    const parsedDate = new Date(value);
+    if (Number.isNaN(parsedDate.getTime())) return "";
+    return parsedDate.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  };
+
+  const showDailyLimitToast = (payload) => {
+    const resetLabel = payload?.resetAt ? formatDateLabel(payload.resetAt) : "tomorrow";
+
+    toast.custom((t) => (
+      <div
+        className="rounded-xl border border-amber-200 bg-white px-4 py-3 shadow-xl"
+        style={{
+          minWidth: "320px",
+          maxWidth: "420px",
+          opacity: t.visible ? 1 : 0,
+        }}
+      >
+        <p className="text-sm font-semibold text-slate-900">
+          You&apos;ve reached your daily limit of 2 listings. Try again tomorrow.
+        </p>
+        <p className="mt-1 text-xs text-slate-600">
+          Next reset: {resetLabel}
+        </p>
+        <button
+          type="button"
+          onClick={() => {
+            toast.dismiss(t.id);
+            navigate("/vehicles");
+          }}
+          className="mt-2 text-sm font-semibold text-emerald-700 underline decoration-emerald-400 underline-offset-2"
+        >
+          View my listings
+        </button>
+      </div>
+    ));
+  };
+
+  const handleRateLimitError = (payload) => {
+    setRateLimitNotice(payload);
+
+    if (payload?.limitType === "monthly") {
+      return;
+    }
+
+    if (payload?.limitType === "daily") {
+      showDailyLimitToast(payload);
+      return;
+    }
+
+    if (payload?.limitType === "cooldown") {
+      ErrorToast({ message: payload?.message || "Please wait before creating another listing." });
+      return;
+    }
+
+    ErrorToast({ message: payload?.message || "Failed to create listing" });
+  };
+
+  const isSubmitDisabled =
+    loading ||
+    submitting ||
+    Boolean(rateLimitNotice?.resetAt && new Date(rateLimitNotice.resetAt).getTime() > Date.now());
+
   const submitForm = async (event) => {
     event.preventDefault();
     if (loading || submitting) return;
 
-    if (!user?.accountVerified) {
+    if (!isUserVerified(user)) {
       ErrorToast({ message: "Please complete account verification first." });
       return;
     }
@@ -149,13 +236,21 @@ const CreateVehicleForm = () => {
       }, 1500);
     } catch (error) {
       console.error("Create vehicle failed", error);
-      ErrorToast({ message: error?.data?.message || "Failed to create listing" });
+      const responseData = error?.response?.data || error;
+
+      if (error?.response?.status === 429 || responseData?.errorCode === "RATE_LIMIT_EXCEEDED") {
+        handleRateLimitError(responseData);
+        return;
+      }
+
+      setRateLimitNotice(null);
+      ErrorToast({ message: responseData?.message || "Failed to create listing" });
     } finally {
       setSubmitting(false);
     }
   };
 
-  if (!user?.accountVerified) {
+  if (!isUserVerified(user)) {
     return (
       <div className="mx-auto w-full max-w-2xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg">
         <div className="p-8 text-center">
@@ -197,6 +292,15 @@ const CreateVehicleForm = () => {
           </div>
 
           <div className="px-6 py-6 md:px-8 md:py-8">
+            {rateLimitNotice?.limitType === "monthly" && (
+              <div className="mb-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-900 shadow-sm">
+                <p className="text-sm font-semibold">Monthly limit reached</p>
+                <p className="mt-1 text-sm">
+                  You&apos;ve reached your monthly limit of 5 listings. Your next slot opens on {formatDateLabel(rateLimitNotice.resetAt)}.
+                </p>
+              </div>
+            )}
+
             <form onSubmit={submitForm}>
               <div className="grid grid-cols-1 gap-x-6 gap-y-5 md:grid-cols-2">
                 <div className="space-y-1.5">
@@ -371,7 +475,7 @@ const CreateVehicleForm = () => {
                   </button>
                   <button
                     type="submit"
-                    disabled={loading || submitting}
+                    disabled={isSubmitDisabled}
                     style={{
                       backgroundColor: '#0f766e',
                       color: 'white',
@@ -384,10 +488,10 @@ const CreateVehicleForm = () => {
                       display: 'inline-flex',
                       alignItems: 'center',
                       gap: '8px',
-                      opacity: submitting ? 0.5 : 1,
+                      opacity: isSubmitDisabled ? 0.5 : 1,
                     }}
-                    onMouseEnter={(e) => { if (!submitting) e.currentTarget.style.backgroundColor = '#155e75'; }}
-                    onMouseLeave={(e) => { if (!submitting) e.currentTarget.style.backgroundColor = '#0f766e'; }}
+                    onMouseEnter={(e) => { if (!isSubmitDisabled) e.currentTarget.style.backgroundColor = '#155e75'; }}
+                    onMouseLeave={(e) => { if (!isSubmitDisabled) e.currentTarget.style.backgroundColor = '#0f766e'; }}
                   >
                     {submitting ? (
                       <span className="inline-flex items-center gap-2">

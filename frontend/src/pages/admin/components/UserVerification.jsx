@@ -51,6 +51,7 @@ import {
   verifyUserAccount,
   getDashboardStats 
 } from "../../../rtk/thunk/adminThunk";
+import { formatPhoneNumber } from "../../../lib/phone";
 
 const UserVerification = () => {
   const dispatch = useDispatch();
@@ -479,7 +480,7 @@ const UserVerification = () => {
                   </div>
                   <div>
                     <Label className="text-xs text-gray-500 uppercase tracking-wide">Phone</Label>
-                    <p className="font-semibold text-gray-900 mt-1">{selectedUser.phoneNumber || "N/A"}</p>
+                    <p className="font-semibold text-gray-900 mt-1">{formatPhoneNumber(selectedUser.phoneNumber) || "N/A"}</p>
                   </div>
                   <div>
                     <Label className="text-xs text-gray-500 uppercase tracking-wide">Status</Label>

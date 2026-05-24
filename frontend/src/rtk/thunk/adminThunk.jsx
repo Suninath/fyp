@@ -16,7 +16,13 @@ export const getDashboardStats = createAsyncThunk(
         ? `/api/v1/admin/dashboard/stats?${queryParams.toString()}`
         : `/api/v1/admin/dashboard/stats`;
 
-      const resp = await main_uri.get(url);
+      const resp = await main_uri.get(url, {
+        headers: {
+          "Cache-Control": "no-cache",
+          Pragma: "no-cache",
+          Expires: "0",
+        },
+      });
       return resp.data?.data;
     } catch (error) {
       ErrorToast({ message: error.response?.data?.message });
@@ -351,8 +357,45 @@ export const getPaymentStats = createAsyncThunk(
   "admin/getPaymentStats",
   async (_, { rejectWithValue }) => {
     try {
-      const resp = await main_uri.get(`/api/v1/admin/payments/stats`);
+      const resp = await main_uri.get(`/api/v1/admin/payments/stats?_ts=${Date.now()}`, {
+        headers: {
+          "Cache-Control": "no-cache",
+          Pragma: "no-cache",
+          Expires: "0",
+        },
+      });
       return resp.data?.data;
+    } catch (error) {
+      ErrorToast({ message: error.response?.data?.message });
+      return rejectWithValue(error.response?.data?.message);
+    }
+  }
+);
+
+export const getRefundRequests = createAsyncThunk(
+  "admin/getRefundRequests",
+  async (params = {}, { rejectWithValue }) => {
+    try {
+      const queryParams = new URLSearchParams();
+      if (params.page) queryParams.append("page", params.page);
+      if (params.limit) queryParams.append("limit", params.limit);
+      if (params.status) queryParams.append("status", params.status);
+      const resp = await main_uri.get(`/api/v1/admin/refunds?${queryParams.toString()}`);
+      return { data: resp.data?.data, pagination: resp.data?.pagination };
+    } catch (error) {
+      ErrorToast({ message: error.response?.data?.message });
+      return rejectWithValue(error.response?.data?.message);
+    }
+  }
+);
+
+export const reviewRefundRequest = createAsyncThunk(
+  "admin/reviewRefundRequest",
+  async ({ id, action, adminNotes }, { rejectWithValue }) => {
+    try {
+      const resp = await main_uri.patch(`/api/v1/admin/refunds/${id}/review`, { action, adminNotes });
+      SucessToast({ message: resp.data?.message });
+      return { id, action };
     } catch (error) {
       ErrorToast({ message: error.response?.data?.message });
       return rejectWithValue(error.response?.data?.message);

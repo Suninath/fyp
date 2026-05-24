@@ -47,7 +47,7 @@ const documentFileFilter = (req: Request, file: Express.Multer.File, cb: multer.
   if (allowedDocumentTypes.includes(file.mimetype)) {
     cb(null, true);
   } else {
-    cb(new Error('Invalid file type. Only JPG, JPEG, PNG, and PDF files are allowed.'));
+    cb(new Error('Invalid file type. Only JPG, PNG, or PDF allowed'));
   }
 };
 

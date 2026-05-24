@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
 import { Button } from "../../ui/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "../../ui/ui/dropdown-menu";
-import { Car, LogOut, User, ChevronDown, Menu, X, MessageCircle, Calendar } from "lucide-react";
+import { Car, LogOut, User, ChevronDown, Menu, X, MessageCircle, Calendar, Heart } from "lucide-react";
 import { userLogout } from "../../rtk/thunk/authThunk";
 import { getConversations } from "../../rtk/thunk/chatThunk";
 import { Badge } from "../../ui/ui/badge";
@@ -147,6 +147,13 @@ const Navigation = () => {
                   >
                     <Car className="w-4 h-4 mr-2" />
                     My Vehicles
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    onClick={() => navigate("/favorites")}
+                    className="cursor-pointer hover:bg-purple-50 hover:text-purple-600 transition-colors focus:bg-purple-50 focus:text-purple-600"
+                  >
+                    <Heart className="w-4 h-4 mr-2" />
+                    Favorites
                   </DropdownMenuItem>
                   <DropdownMenuItem 
                     onClick={() => navigate("/bookings")} 

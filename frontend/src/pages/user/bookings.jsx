@@ -8,6 +8,8 @@ import { Calendar, Clock, CheckCircle, AlertCircle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "../../ui/ui/card";
 import { Button } from "../../ui/ui/button";
 import { getUserBookings } from "../../rtk/slice/bookingSlice";
+import { getUserProfile } from "../../rtk/thunk/authThunk";
+import { isUserVerified } from "../../lib/verification";
 
 const UserBookingsPage = () => {
   const dispatch = useDispatch();
@@ -17,7 +19,23 @@ const UserBookingsPage = () => {
   // Fetch all bookings on mount to calculate stats
   useEffect(() => {
     dispatch(getUserBookings({ page: 1, limit: 100 }));
+    dispatch(getUserProfile());
   }, [dispatch]);
+
+  // Refresh profile on focus in case verification changed in another tab/session.
+  useEffect(() => {
+    const handleWindowFocus = () => {
+      dispatch(getUserProfile());
+    };
+
+    window.addEventListener("focus", handleWindowFocus);
+    return () => window.removeEventListener("focus", handleWindowFocus);
+  }, [dispatch]);
+
+  // Temporary debug log to verify frontend user shape for verification checks.
+  useEffect(() => {
+    console.log("[Bookings] user profile", user);
+  }, [user]);
 
   // Calculate stats from bookings
 
@@ -38,7 +56,7 @@ const UserBookingsPage = () => {
 
       <main className="flex-1 container mx-auto px-4 py-8 max-w-6xl">
         {/* Verification Warning Banner */}
-        {!user?.accountVerified && (
+        {user && !isUserVerified(user) && (
           <div className="mb-8 p-4 bg-yellow-50 border border-yellow-200 rounded-lg flex gap-4">
             <AlertCircle className="w-6 h-6 text-yellow-600 flex-shrink-0 mt-0.5" />
             <div className="flex-1">

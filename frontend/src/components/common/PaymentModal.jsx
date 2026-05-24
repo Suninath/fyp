@@ -4,6 +4,7 @@ import { initiatePayment } from "../../rtk/slice/bookingSlice";
 import { X } from "lucide-react";
 import { Button } from "../ui/button";
 import { SucessToast, ErrorToast } from "./toast";
+import { isKhaltiSandbox } from "../../lib/khalti";
 
 const PaymentModal = ({ booking, onClose }) => {
   const dispatch = useDispatch();
@@ -61,6 +62,10 @@ const PaymentModal = ({ booking, onClose }) => {
 
       if (result.payload?.status) {
         const paymentGateway = result.payload.data?.paymentGateway;
+
+        if (result.payload?.data?.reusedExisting) {
+          SucessToast({ message: "Resuming previous payment attempt..." });
+        }
         
         if (!paymentGateway) {
           ErrorToast({ message: "Payment gateway data not received" });
@@ -128,31 +133,15 @@ const PaymentModal = ({ booking, onClose }) => {
 
   const redirectToKhalti = async (data) => {
     try {
-      // Khalti requires server-side initiation, then redirect to payment_url
-      const response = await fetch(data.khaltiUrl, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Key ${data.secretKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          return_url: data.return_url,
-          website_url: data.website_url,
-          amount: data.amount,
-          purchase_order_id: data.purchase_order_id,
-          purchase_order_name: data.purchase_order_name,
-          customer_info: data.customer_info,
-        }),
-      });
-      
-      const result = await response.json();
-      console.log("Khalti initiation response:", result);
-      
-      if (result.payment_url) {
-        window.location.href = result.payment_url;
-      } else {
-        ErrorToast({ message: result.detail || "Failed to initiate Khalti payment" });
+      const paymentUrl = data.payment_url;
+
+      if (!paymentUrl) {
+        ErrorToast({ message: "Khalti payment URL was not returned" });
+        return;
       }
+
+      console.log("Redirecting to Khalti payment:", paymentUrl);
+      window.location.href = paymentUrl;
     } catch (error) {
       console.error("Khalti redirect error:", error);
       ErrorToast({ message: "Failed to connect to Khalti" });
@@ -217,6 +206,18 @@ const PaymentModal = ({ booking, onClose }) => {
 
         {/* Action Buttons */}
         <div className="px-6 py-4 bg-gray-50 border-t flex gap-3">
+          {(import.meta.env.MODE !== 'production' || isKhaltiSandbox) && (
+            <div className="absolute left-6 top-6 w-[calc(100%-96px)]">
+              <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 mb-4 text-sm">
+                <p className="font-semibold text-amber-900 mb-1">🧪 Test Mode — Khalti Sandbox</p>
+                <p className="text-amber-800">
+                  Use these test credentials on the Khalti page:
+                  <br />
+                  <span className="font-mono">Phone: 9800000000</span> · <span className="font-mono">MPIN: 1111</span> · <span className="font-mono">OTP: 987654</span>
+                </p>
+              </div>
+            </div>
+          )}
           <Button
             onClick={onClose}
             variant="outline"

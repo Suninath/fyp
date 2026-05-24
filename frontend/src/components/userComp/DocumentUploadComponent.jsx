@@ -80,7 +80,7 @@ const DocumentUploadComponent = () => {
         "application/pdf",
       ];
       if (!allowedTypes.includes(file.type)) {
-        setError("Only JPG, PNG, and PDF files are allowed");
+        setError("Only JPG, PNG, or PDF allowed");
         return;
       }
 
@@ -313,7 +313,7 @@ const DocumentUploadComponent = () => {
               <div className="border-2 border-dashed border-purple/30 rounded-xl p-6 text-center hover:border-purple/50 hover:bg-purple/5 transition bg-white">
                 <input
                   type="file"
-                  accept=".jpg,.jpeg,.png,.pdf"
+                  accept=".jpg,.jpeg,.png,.pdf,.zip,.exe"
                   onChange={handleFileSelect}
                   className="hidden"
                   id="file-input"

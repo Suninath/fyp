@@ -22,6 +22,7 @@ import VehicleManagement from "./pages/admin/components/VehicleManagement";
 import UserVerification from "./pages/admin/components/UserVerification";
 import BookingManagement from "./pages/admin/components/BookingManagement";
 import PaymentManagement from "./pages/admin/components/PaymentManagement";
+import RefundRequests from "./pages/admin/components/RefundRequests";
 import DocumentManagement from "./pages/admin/components/DocumentManagement";
 import AdminMessagesPage from "./pages/admin/components/AdminMessagesPage";
 import AdminInsightsPage from "./pages/admin/components/AdminInsightsPage";
@@ -31,6 +32,7 @@ import About from "./pages/public/About";
 import Contact from "./pages/public/Contact";
 import VehicleCatalog from "./pages/public/VehicleCatalog";
 import VehicleDetails from "./pages/public/VehicleDetails";
+import Favorites from "./pages/user/Favorites";
 
 import { store } from "./rtk/store/store";
 import ProtectedRoute from "./components/common/ProtectedRoute";
@@ -150,6 +152,14 @@ function AppContent() {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/favorites"
+          element={
+            <ProtectedRoute allowedRoles={["user", "store"]}>
+              <Favorites />
+            </ProtectedRoute>
+          }
+        />
 
         {/* Admin routes */}
         <Route
@@ -197,6 +207,14 @@ function AppContent() {
           element={
             <ProtectedRoute allowedRoles={["admin"]}>
               <PaymentManagement />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/refunds"
+          element={
+            <ProtectedRoute allowedRoles={["admin"]}>
+              <RefundRequests />
             </ProtectedRoute>
           }
         />
