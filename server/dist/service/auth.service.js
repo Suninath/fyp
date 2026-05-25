@@ -21,6 +21,7 @@ const user_entity_1 = require("../entities/user.entity");
 const auth_entity_1 = require("../entities/auth.entity");
 const otp_entity_1 = require("../entities/otp.entity");
 const enums_1 = require("../constant/enums");
+const phone_1 = require("../utils/phone");
 const userRepository = db_config_1.default.getRepository(user_entity_1.UserEntity);
 const authRepository = db_config_1.default.getRepository(auth_entity_1.AuthEntity);
 const otpRepository = db_config_1.default.getRepository(otp_entity_1.UserOtpEntity);
@@ -95,11 +96,20 @@ const authService = {
                 if (!name || !email || !phoneNumber || !password) {
                     return { status: false, code: 400, message: "All fields required" };
                 }
+                const normalizedPhone = String(phoneNumber).trim();
+                if (!(0, phone_1.isValidNepaliPhoneNumber)(normalizedPhone)) {
+                    return {
+                        status: false,
+                        code: 400,
+                        errorCode: "INVALID_PHONE",
+                        message: (0, phone_1.getInvalidPhoneMessage)(),
+                    };
+                }
                 const existingEmail = yield authRepository.findOneBy({ email });
                 if (existingEmail) {
                     return { status: false, code: 400, message: "Email already exists" };
                 }
-                const existingPhone = yield userRepository.findOneBy({ phoneNumber });
+                const existingPhone = yield userRepository.findOneBy({ phoneNumber: normalizedPhone });
                 if (existingPhone) {
                     return {
                         status: false,
@@ -109,7 +119,7 @@ const authService = {
                 }
                 const hashedPassword = yield (0, passwordHelper_1.hashPassword)(password);
                 /* SAVE USER FIRST */
-                const user = userRepository.create({ name, phoneNumber });
+                const user = userRepository.create({ name, phoneNumber: normalizedPhone });
                 yield userRepository.save(user);
                 /* THEN SAVE AUTH */
                 const auth = authRepository.create({
@@ -332,6 +342,14 @@ const authService = {
                 // Update phone number with uniqueness check
                 if (typeof phoneNumber === "string") {
                     const normalizedPhone = phoneNumber.trim();
+                    if (normalizedPhone && !(0, phone_1.isValidNepaliPhoneNumber)(normalizedPhone)) {
+                        return {
+                            status: false,
+                            code: 400,
+                            errorCode: "INVALID_PHONE",
+                            message: (0, phone_1.getInvalidPhoneMessage)(),
+                        };
+                    }
                     if (normalizedPhone && normalizedPhone !== userDetails.phoneNumber) {
                         const existingPhone = yield userRepository.findOne({
                             where: { phoneNumber: normalizedPhone },
@@ -479,11 +497,20 @@ const authService = {
                     !companyRegistrationDoc) {
                     return { status: false, code: 400, message: "All fields are required" };
                 }
+                const normalizedPhone = String(phoneNumber).trim();
+                if (!(0, phone_1.isValidNepaliPhoneNumber)(normalizedPhone)) {
+                    return {
+                        status: false,
+                        code: 400,
+                        errorCode: "INVALID_PHONE",
+                        message: (0, phone_1.getInvalidPhoneMessage)(),
+                    };
+                }
                 const existingEmail = yield authRepository.findOneBy({ email });
                 if (existingEmail) {
                     return { status: false, code: 400, message: "Email already exists" };
                 }
-                const existingPhone = yield userRepository.findOneBy({ phoneNumber });
+                const existingPhone = yield userRepository.findOneBy({ phoneNumber: normalizedPhone });
                 if (existingPhone) {
                     return {
                         status: false,
@@ -495,7 +522,7 @@ const authService = {
                 /* SAVE STORE USER */
                 const storeUser = userRepository.create({
                     name: storeNameValue,
-                    phoneNumber,
+                    phoneNumber: normalizedPhone,
                     panNumber,
                     companyRegistrationDoc,
                     paymentStatus: true, // assuming stores are paid

@@ -548,12 +548,24 @@ export const bookingService = {
 
   async cancelBooking(bookingId: number, userId: number) {
     try {
+      console.log("[CancelBooking] Request received", { bookingId, userId });
+
       const booking = await bookingRepository.findOne({
         where: { id: bookingId, user: { id: userId } },
         relations: ["payments", "refundRequests"],
       });
 
+      console.log("[CancelBooking] Booking lookup", {
+        found: !!booking,
+        bookingId,
+        userId,
+      });
+
       if (!booking) {
+        console.log("[CancelBooking] Booking not found or ownership mismatch", {
+          bookingId,
+          userId,
+        });
         return {
           status: false,
           code: 404,
@@ -561,10 +573,19 @@ export const bookingService = {
         };
       }
 
+      console.log("[CancelBooking] Found booking", {
+        id: booking.id,
+        status: booking.status,
+      });
+
       if (
         booking.status === BOOKING_STATUS.CANCELLED ||
         booking.status === BOOKING_STATUS.COMPLETED
       ) {
+        console.log("[CancelBooking] Invalid status for cancellation", {
+          bookingId: booking.id,
+          status: booking.status,
+        });
         return {
           status: false,
           code: 400,
@@ -576,7 +597,15 @@ export const bookingService = {
         (payment) => payment.status === PAYMENT_STATUS.SUCCESS
       );
 
+      console.log("[CancelBooking] Payment guard", {
+        bookingId: booking.id,
+        hasSuccessfulPayment,
+      });
+
       if (hasSuccessfulPayment) {
+        console.log("[CancelBooking] Blocked due to successful payment", {
+          bookingId: booking.id,
+        });
         return {
           status: false,
           code: 400,
@@ -584,7 +613,64 @@ export const bookingService = {
         };
       }
 
-      await this.updateBookingStatus(booking.id, BOOKING_STATUS.CANCELLED);
+      // User cancellations do not include an admin remark, but updateBookingStatus
+      // requires one for cancelled status. Pass a system remark explicitly.
+      const cancellationRemark = "Cancelled by user";
+      console.log("[CancelBooking] Attempting status update", {
+        bookingId: booking.id,
+        nextStatus: BOOKING_STATUS.CANCELLED,
+        cancellationRemark,
+      });
+
+      const updateResult = await this.updateBookingStatus(
+        booking.id,
+        BOOKING_STATUS.CANCELLED,
+        cancellationRemark
+      );
+
+      console.log("[CancelBooking] Status update result", {
+        bookingId: booking.id,
+        status: updateResult?.status,
+        code: updateResult?.code,
+        message: updateResult?.message,
+      });
+
+      if (!updateResult?.status) {
+        console.error("[CancelBooking] Status update failed", {
+          bookingId: booking.id,
+          userId,
+          updateResult,
+        });
+        return {
+          status: false,
+          code: updateResult?.code || 400,
+          message:
+            updateResult?.message ||
+            "Booking could not be cancelled. No database update was applied.",
+        };
+      }
+
+      const verificationBooking = await bookingRepository.findOne({
+        where: { id: booking.id },
+        select: { id: true, status: true, updatedAt: true },
+      });
+
+      console.log("[CancelBooking] Post-update verification", {
+        bookingId: booking.id,
+        statusAfterUpdate: verificationBooking?.status,
+      });
+
+      if (!verificationBooking || verificationBooking.status !== BOOKING_STATUS.CANCELLED) {
+        console.error("[CancelBooking] Verification failed after update", {
+          bookingId: booking.id,
+          verificationBooking,
+        });
+        return {
+          status: false,
+          code: 500,
+          message: "Booking cancellation could not be verified after update",
+        };
+      }
 
       await safeNotify(() =>
         notificationService.createForAdmins({
@@ -602,9 +688,14 @@ export const bookingService = {
         status: true,
         code: 200,
         message: "Booking cancelled successfully",
+        data: {
+          id: verificationBooking.id,
+          status: verificationBooking.status,
+          updatedAt: verificationBooking.updatedAt,
+        },
       };
     } catch (error) {
-      console.error(error);
+      console.error("[CancelBooking] ERROR", error);
       return {
         status: false,
         code: 500,
@@ -750,7 +841,12 @@ export const bookingService = {
         refundRequest.processedAt = new Date();
         refundRequest.processedBy = { id: adminUserId } as UserEntity;
         await refundRequestRepository.save(refundRequest);
-        return { status: true, code: 200, message: "Refund request rejected" };
+        return {
+          status: true,
+          code: 200,
+          message: "Refund request rejected",
+          data: { refundRequestId: refundRequest.id, status: refundRequest.status },
+        };
       }
 
       if (action === "Approve") {
@@ -765,7 +861,12 @@ export const bookingService = {
 
         await refundRequestRepository.save(refundRequest);
 
-        return { status: true, code: 200, message: "Refund request approved" };
+        return {
+          status: true,
+          code: 200,
+          message: "Refund request approved",
+          data: { refundRequestId: refundRequest.id, status: refundRequest.status, bookingId: booking.id },
+        };
       }
 
       refundRequest.status = REFUND_REQUEST_STATUS.PROCESSED;
@@ -785,7 +886,12 @@ export const bookingService = {
         }
       }
 
-      return { status: true, code: 200, message: "Refund marked as processed" };
+      return {
+        status: true,
+        code: 200,
+        message: "Refund marked as processed",
+        data: { refundRequestId: refundRequest.id, status: refundRequest.status },
+      };
     } catch (error) {
       console.error(error);
       return { status: false, code: 500, message: "Internal Server Error" };
@@ -888,7 +994,7 @@ export const bookingService = {
         await paymentRepository.save(pendingPayment);
 
         reusedExisting = true;
-        paymentId = pendingPayment.id;
+        paymentId = pendingPayment.id!;
       } else {
         // Step 2: No pending found, create a new pending payment.
         // If unique constraint fails due to race, refetch and reuse.
@@ -904,7 +1010,7 @@ export const bookingService = {
           });
 
           const savedPayment = await paymentRepository.save(payment);
-          paymentId = savedPayment.id;
+          paymentId = savedPayment.id!;
         } catch (insertError) {
           if (!isPendingPerBookingConstraintError(insertError)) {
             throw insertError;
@@ -976,6 +1082,18 @@ export const bookingService = {
             code: 500,
             message: "Failed to generate payment gateway data",
           };
+        }
+
+        // Persist gateway response (pidx/payment_url) on the payment record so we can
+        // map Khalti lookup results back to our payment later (verify endpoint).
+        try {
+          const paymentToUpdate = await paymentRepository.findOne({ where: { id: paymentId }, relations: ['booking'] });
+          if (paymentToUpdate) {
+            paymentToUpdate.response = JSON.stringify(paymentGatewayData);
+            await paymentRepository.save(paymentToUpdate);
+          }
+        } catch (respErr) {
+          console.error('Failed to persist payment gateway response for paymentId=', paymentId, respErr);
         }
       } catch (paymentError) {
         console.error(`Error generating payment gateway data for ${method}:`, paymentError);
@@ -1115,9 +1233,8 @@ export const bookingService = {
   },
 
   async initiateKhaltiPayment(booking: BookingEntity, paymentId: number) {
-    // Use sandbox/test environment by default, production in live
-    const isProduction = process.env.NODE_ENV === "production";
     const khaltiSecretKey = process.env.KHALTI_SECRET_KEY || "live_secret_key_68791341fdd94846a146f0457ff7b455";
+    const khaltiMerchantUsername = process.env.KHALTI_MERCHANT_USERNAME || "test_merchant";
     const websiteUrl = process.env.FRONTEND_URL || "http://localhost:5173";
     const returnUrl = process.env.KHALTI_RETURN_URL || `${websiteUrl}/booking/payment/success`;
     
@@ -1143,6 +1260,7 @@ export const bookingService = {
       amount: amountInPaisa,
       purchase_order_id: purchaseOrderId,
       purchase_order_name: `Vehicle Booking #${booking.id}`,
+      merchant_username: khaltiMerchantUsername,
       customer_info: {
         name: booking.user?.name || "Customer",
         email: booking.user?.auth?.email || "",
@@ -1208,6 +1326,8 @@ export const bookingService = {
         return {
           pidx: data.pidx,
           payment_url: data.payment_url,
+          go_link: data.go_link,
+          gateway_payment_url: data.payment_url,
           expires_at: data.expires_at,
           expires_in: data.expires_in,
           bookingId: booking.id,
@@ -1406,6 +1526,26 @@ export const bookingService = {
     } catch (error) {
       console.error("Khalti verification error:", error);
       return { success: false, data: null };
+    }
+  },
+
+  async findPaymentByPidx(pidx: string) {
+    try {
+      // Try to find a payment where we previously saved the gateway response containing the pidx
+      const payments = await paymentRepository
+        .createQueryBuilder('payment')
+        .where('payment.response ILIKE :p', { p: `%${pidx}%` })
+        .leftJoinAndSelect('payment.booking', 'booking')
+        .getMany();
+
+      if (payments && payments.length > 0) {
+        return payments[0];
+      }
+
+      return null;
+    } catch (error) {
+      console.error('Error finding payment by pidx:', pidx, error);
+      return null;
     }
   },
 

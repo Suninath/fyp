@@ -19,7 +19,11 @@ const PaymentSuccess = () => {
       (async () => {
         setVerifying(true);
         try {
-          const resp = await fetch(`/api/v1/bookings/payment/verify?pidx=${encodeURIComponent(pidx)}`);
+          const backend = import.meta.env.VITE_BACKEND_URL || '';
+          const url = backend
+            ? `${backend.replace(/\/$/, '')}/api/v1/bookings/payment/verify?pidx=${encodeURIComponent(pidx)}`
+            : `/api/v1/bookings/payment/verify?pidx=${encodeURIComponent(pidx)}`;
+          const resp = await fetch(url);
           const result = await resp.json();
           if (resp.ok && result.status) {
             // If backend processed and returned bookingId, we can show it (result.data)

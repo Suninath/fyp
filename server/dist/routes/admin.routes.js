@@ -34,7 +34,7 @@ router.patch("/bookings/:bookingId/status", admin_controller_1.default.updateBoo
 // Payment management
 router.get("/payments", admin_controller_1.default.getAllPayments);
 router.get("/payments/stats", admin_controller_1.default.getPaymentStats);
-// Refund management
+// Refund requests
 router.get("/refunds", admin_controller_1.default.getRefundRequests);
 router.patch("/refunds/:id/review", admin_controller_1.default.reviewRefundRequest);
 exports.default = router;

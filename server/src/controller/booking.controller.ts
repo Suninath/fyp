@@ -122,6 +122,12 @@ const bookingController = {
       const userId = (req as any).user?.id;
       const bookingId = parseInt(req.params.id);
 
+      console.log("[CancelBooking] Controller request", {
+        bookingIdRaw: req.params.id,
+        bookingId,
+        userId,
+      });
+
       if (!userId) {
         return res.status(401).json({
           status: false,
@@ -129,10 +135,24 @@ const bookingController = {
         });
       }
 
+      if (!bookingId || Number.isNaN(bookingId)) {
+        return res.status(400).json({
+          status: false,
+          message: "Invalid booking id",
+        });
+      }
+
       const result = await bookingService.cancelBooking(bookingId, userId);
+      console.log("[CancelBooking] Controller response", {
+        bookingId,
+        userId,
+        code: result.code,
+        status: result.status,
+        message: result.message,
+      });
       res.status(result.code).json(result);
     } catch (error) {
-      console.error(error);
+      console.error("[CancelBooking] Controller error", error);
       res.status(500).json({
         status: false,
         message: "Internal Server Error",
@@ -325,14 +345,26 @@ const bookingController = {
 
       // If lookup succeeded, process the payment update via existing khaltiCallback flow
       const data = verification.data || {};
-      const purchaseOrderId = data.purchase_order_id || data.purchase_order || data.purchase_order_id;
+      let purchaseOrderId = data.purchase_order_id || data.purchase_order || data.purchaseOrderId || data.purchase_order_id;
       const transactionId = data.transaction_id || data.tidx || data.transactionId || pidx;
       const amount = data.total_amount || data.amount || data.totalAmount || "";
       const status = data.status || "Completed";
 
       if (!purchaseOrderId) {
-        // We have a lookup but can't map to an order - return the raw data
-        return res.status(200).json({ status: true, message: 'Payment lookup succeeded (no purchase_order_id)', data });
+        // Try to map pidx back to our payment record (we save the initiation response in payment.response)
+        try {
+          const payment = await bookingService.findPaymentByPidx(pidx);
+          if (payment && payment.booking && payment.id) {
+            purchaseOrderId = `BOOKING-${payment.booking.id}-${payment.id}-recovered`;
+            console.log('Recovered purchaseOrderId from DB for pidx:', pidx, '->', purchaseOrderId);
+          } else {
+            // We have a lookup but can't map to an order - return the raw data
+            return res.status(200).json({ status: true, message: 'Payment lookup succeeded (no purchase_order_id)', data });
+          }
+        } catch (mapErr) {
+          console.error('Error mapping pidx to payment:', mapErr);
+          return res.status(200).json({ status: true, message: 'Payment lookup succeeded (no purchase_order_id)', data });
+        }
       }
 
       const result = await bookingService.khaltiCallback(

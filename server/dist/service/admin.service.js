@@ -25,6 +25,7 @@ const vehicle_view_entity_1 = require("../entities/vehicle_view.entity");
 const enums_1 = require("../constant/enums");
 const notification_service_1 = require("./notification.service");
 const notification_entity_1 = require("../entities/notification.entity");
+const phone_1 = require("../utils/phone");
 const userRepository = db_config_1.default.getRepository(user_entity_1.UserEntity);
 const authRepository = db_config_1.default.getRepository(auth_entity_1.AuthEntity);
 const vehicleRepository = db_config_1.default.getRepository(vehicle_entity_1.VehicleEntity);
@@ -490,6 +491,7 @@ const adminService = {
                     .select("COALESCE(SUM(payment.amount), 0)", "total")
                     .where("payment.status = :status", { status: payment_entity_1.PAYMENT_STATUS.FAILED })
                     .getRawOne();
+                // Some refunds are recorded in refundAmount; sum those too.
                 const refundedRow = yield paymentRepository
                     .createQueryBuilder("payment")
                     .select("COALESCE(SUM(payment.refundAmount), 0)", "total")
@@ -750,8 +752,28 @@ const adminService = {
                 // Update user fields
                 if (updateData.name)
                     user.name = updateData.name;
-                if (updateData.phoneNumber)
-                    user.phoneNumber = updateData.phoneNumber;
+                if (updateData.phoneNumber) {
+                    const normalizedPhone = String(updateData.phoneNumber).trim();
+                    if (!(0, phone_1.isValidNepaliPhoneNumber)(normalizedPhone)) {
+                        return {
+                            status: false,
+                            code: 400,
+                            errorCode: "INVALID_PHONE",
+                            message: (0, phone_1.getInvalidPhoneMessage)(),
+                        };
+                    }
+                    const existingPhone = yield userRepository.findOne({
+                        where: { phoneNumber: normalizedPhone },
+                    });
+                    if (existingPhone && existingPhone.id !== user.id) {
+                        return {
+                            status: false,
+                            code: 400,
+                            message: "Phone number already in use",
+                        };
+                    }
+                    user.phoneNumber = normalizedPhone;
+                }
                 if (updateData.email)
                     user.auth.email = updateData.email;
                 yield userRepository.save(user);

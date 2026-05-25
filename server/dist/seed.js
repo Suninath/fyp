@@ -75,7 +75,7 @@ function seedDatabase() {
             /* ===================== ADMIN ===================== */
             const adminUser = userRepo.create({
                 name: "System Administrator",
-                phoneNumber: "1234567890",
+                phoneNumber: "9841234567",
             });
             yield userRepo.save(adminUser);
             const adminAuth = authRepo.create({
@@ -91,17 +91,17 @@ function seedDatabase() {
                 {
                     email: "john.doe@example.com",
                     name: "John Doe",
-                    phoneNumber: "9876543210",
+                    phoneNumber: "9861234567",
                 },
                 {
                     email: "jane.smith@example.com",
                     name: "Jane Smith",
-                    phoneNumber: "9123456789",
+                    phoneNumber: "9871234567",
                 },
                 {
                     email: "mike.johnson@example.com",
                     name: "Mike Johnson",
-                    phoneNumber: "9555123456",
+                    phoneNumber: "9881234567",
                 },
             ];
             for (const u of users) {

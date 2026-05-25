@@ -133,7 +133,7 @@ const PaymentModal = ({ booking, onClose }) => {
 
   const redirectToKhalti = async (data) => {
     try {
-      const paymentUrl = data.payment_url;
+      const paymentUrl = data.gateway_payment_url || data.payment_url || data.go_link;
 
       if (!paymentUrl) {
         ErrorToast({ message: "Khalti payment URL was not returned" });

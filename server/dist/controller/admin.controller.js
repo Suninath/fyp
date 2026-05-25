@@ -86,6 +86,7 @@ const adminController = {
     getDashboardStats(req, res) {
         return __awaiter(this, void 0, void 0, function* () {
             var _a;
+            // Prevent stale dashboard stats in browsers/proxies.
             res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
             res.setHeader("Pragma", "no-cache");
             res.setHeader("Expires", "0");
@@ -291,6 +292,7 @@ const adminController = {
     },
     getPaymentStats(req, res) {
         return __awaiter(this, void 0, void 0, function* () {
+            // Prevent stale payment stats cards in browser/proxy caches.
             res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
             res.setHeader("Pragma", "no-cache");
             res.setHeader("Expires", "0");
@@ -303,8 +305,7 @@ const adminController = {
                 data: result.data,
             });
         });
-    }
-    ,
+    },
     getRefundRequests(req, res) {
         return __awaiter(this, void 0, void 0, function* () {
             const { page = 1, limit = 10, status } = req.query;
@@ -326,9 +327,10 @@ const adminController = {
     },
     reviewRefundRequest(req, res) {
         return __awaiter(this, void 0, void 0, function* () {
+            var _a;
             const { id } = req.params;
             const { action, adminNotes } = req.body;
-            const adminId = req.user?.id;
+            const adminId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id;
             const { bookingService } = yield Promise.resolve().then(() => __importStar(require("../service/booking.service")));
             const result = yield bookingService.reviewRefundRequest(Number(id), action, Number(adminId), adminNotes);
             (0, responseHandler_1.sendResponse)(res, {

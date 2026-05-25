@@ -250,8 +250,18 @@ const bookingSlice = createSlice({
       })
       .addCase(cancelBooking.fulfilled, (state, action) => {
         state.loading = false;
-        if (state.currentBooking) {
+        // Update currentBooking if open
+        if (state.currentBooking && state.currentBooking.id === action.meta.arg) {
           state.currentBooking.status = "Cancelled";
+        }
+
+        // Also update the bookings list so UI updates immediately without waiting
+        // for an additional refetch. Use the bookingId passed as the thunk arg.
+        const cancelledId = action.meta.arg;
+        if (state.bookings && state.bookings.length) {
+          state.bookings = state.bookings.map((b) =>
+            b.id === cancelledId ? { ...b, status: "Cancelled", updatedAt: action.payload?.data?.updatedAt || b.updatedAt } : b
+          );
         }
       })
       .addCase(cancelBooking.rejected, (state, action) => {
