@@ -1,0 +1,28 @@
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = __importDefault(require("express"));
+const auth_routes_1 = __importDefault(require("./auth.routes"));
+const admin_routes_1 = __importDefault(require("./admin.routes"));
+const vehicle_routes_1 = __importDefault(require("./vehicle.routes"));
+const comment_routes_1 = __importDefault(require("./comment.routes"));
+const booking_routes_1 = __importDefault(require("./booking.routes"));
+const chat_routes_1 = __importDefault(require("./chat.routes"));
+const document_routes_1 = __importDefault(require("./document.routes"));
+const review_routes_1 = __importDefault(require("./review.routes"));
+const notification_routes_1 = __importDefault(require("./notification.routes"));
+const savedAlert_routes_1 = __importDefault(require("./savedAlert.routes"));
+const router = express_1.default.Router();
+router.use("/api/v1/auth", auth_routes_1.default);
+router.use("/api/v1/admin", admin_routes_1.default);
+router.use("/api/v1/vehicles", vehicle_routes_1.default);
+router.use("/api/v1/comments", comment_routes_1.default);
+router.use("/api/v1/bookings", booking_routes_1.default);
+router.use("/api/v1/chat", chat_routes_1.default);
+router.use("/api/v1/documents", document_routes_1.default);
+router.use("/api/v1/reviews", review_routes_1.default);
+router.use("/api/v1/notifications", notification_routes_1.default);
+router.use("/api/v1/alerts", savedAlert_routes_1.default);
+exports.default = router;

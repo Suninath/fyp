@@ -1,0 +1,232 @@
+/** @type {import('tailwindcss').Config} */
+export default {
+  content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
+  theme: {
+    extend: {
+      animation: {
+        marquee: "marquee 25s linear infinite",
+        marquee2: "marquee2 25s linear infinite",
+      },
+      keyframes: {
+        marquee: {
+          "0%": { transform: "translateX(0%)" },
+          "100%": { transform: "translateX(-100%)" },
+        },
+        marquee2: {
+          "0%": { transform: "translateX(100%)" },
+          "100%": { transform: "translateX(0%)" },
+        },
+      },
+    },
+    colors: {
+      // Base colors
+      transparent: "transparent",
+      current: "currentColor",
+      black: "#000000",
+      white: "#FFFFFF",
+
+      // Primary - Teal
+      primary: {
+        DEFAULT: "#0F766E",
+        50: "#F0FDFA",
+        100: "#CCFBF1",
+        200: "#99F6E4",
+        300: "#5EEAD4",
+        400: "#2DD4BF",
+        500: "#14B8A6",
+        600: "#0D9488",
+        700: "#0F766E",
+        800: "#115E59",
+        900: "#134E4A",
+        foreground: "#FFFFFF",
+      },
+      // Keep legacy purple utilities mapped to the new brand scale
+      purple: {
+        DEFAULT: "#0F766E",
+        50: "#F0FDFA",
+        100: "#CCFBF1",
+        200: "#99F6E4",
+        300: "#5EEAD4",
+        400: "#2DD4BF",
+        500: "#14B8A6",
+        600: "#0D9488",
+        700: "#0F766E",
+        800: "#115E59",
+        900: "#134E4A",
+      },
+
+      // Secondary - Deep Cyan
+      secondary: {
+        DEFAULT: "#155E75",
+        50: "#ECFEFF",
+        100: "#CFFAFE",
+        200: "#A5F3FC",
+        300: "#67E8F9",
+        400: "#22D3EE",
+        500: "#06B6D4",
+        600: "#0891B2",
+        700: "#0E7490",
+        800: "#155E75",
+        900: "#164E63",
+        foreground: "#FFFFFF",
+      },
+      // Keep legacy blue utilities mapped to secondary scale
+      blue: {
+        DEFAULT: "#155E75",
+        50: "#ECFEFF",
+        100: "#CFFAFE",
+        200: "#A5F3FC",
+        300: "#67E8F9",
+        400: "#22D3EE",
+        500: "#06B6D4",
+        600: "#0891B2",
+        700: "#0E7490",
+        800: "#155E75",
+        900: "#164E63",
+      },
+      
+      // Success - Green
+      success: {
+        DEFAULT: "#15803D",
+        50: "#ECFDF5",
+        100: "#D1FAE5",
+        200: "#A7F3D0",
+        300: "#6EE7B7",
+        400: "#34D399",
+        500: "#22C55E",
+        600: "#16A34A",
+        700: "#15803D",
+        800: "#166534",
+        900: "#14532D",
+        foreground: "#FFFFFF",
+      },
+      green: {
+        DEFAULT: "#15803D",
+        50: "#ECFDF5",
+        100: "#D1FAE5",
+        200: "#A7F3D0",
+        300: "#6EE7B7",
+        400: "#34D399",
+        500: "#22C55E",
+        600: "#16A34A",
+        700: "#15803D",
+        800: "#166534",
+        900: "#14532D",
+      },
+      
+      // Warning - Amber/Orange
+      warning: {
+        DEFAULT: "#F59E0B",
+        50: "#FFFBEB",
+        100: "#FEF3C7",
+        200: "#FDE68A",
+        300: "#FCD34D",
+        400: "#FBBF24",
+        500: "#F59E0B",
+        600: "#D97706",
+        700: "#B45309",
+        800: "#92400E",
+        900: "#78350F",
+        foreground: "#FFFFFF",
+      },
+      amber: {
+        DEFAULT: "#F59E0B",
+        50: "#FFFBEB",
+        100: "#FEF3C7",
+        200: "#FDE68A",
+        300: "#FCD34D",
+        400: "#FBBF24",
+        500: "#F59E0B",
+        600: "#D97706",
+        700: "#B45309",
+        800: "#92400E",
+        900: "#78350F",
+      },
+      yellow: {
+        DEFAULT: "#F59E0B",
+        50: "#FFFBEB",
+        100: "#FEF3C7",
+        200: "#FDE68A",
+        300: "#FCD34D",
+        400: "#FBBF24",
+        500: "#F59E0B",
+        600: "#D97706",
+        700: "#B45309",
+        800: "#92400E",
+        900: "#78350F",
+      },
+      
+      // Destructive/Error - Red
+      destructive: {
+        DEFAULT: "#DC2626",
+        50: "#FEF2F2",
+        100: "#FEE2E2",
+        200: "#FECACA",
+        300: "#FCA5A5",
+        400: "#F87171",
+        500: "#EF4444",
+        600: "#DC2626",
+        700: "#B91C1C",
+        800: "#991B1B",
+        900: "#7F1D1D",
+        foreground: "#FFFFFF",
+      },
+      red: {
+        DEFAULT: "#DC2626",
+        50: "#FEF2F2",
+        100: "#FEE2E2",
+        200: "#FECACA",
+        300: "#FCA5A5",
+        400: "#F87171",
+        500: "#EF4444",
+        600: "#DC2626",
+        700: "#B91C1C",
+        800: "#991B1B",
+        900: "#7F1D1D",
+      },
+      
+      // Grayscale
+      gray: {
+        50: "#FAFAFA",
+        100: "#F4F4F5",
+        200: "#E4E4E7",
+        300: "#D4D4D8",
+        400: "#A1A1AA",
+        500: "#71717A",
+        600: "#52525B",
+        700: "#3F3F46",
+        800: "#27272A",
+        900: "#18181B",
+        950: "#09090B",
+      },
+      
+      // Semantic/UI Colors
+      background: "#FFFFFF",
+      foreground: "#18181B",
+      card: {
+        DEFAULT: "#FFFFFF",
+        foreground: "#18181B",
+      },
+      popover: {
+        DEFAULT: "#FFFFFF",
+        foreground: "#18181B",
+      },
+      muted: {
+        DEFAULT: "#F4F4F5",
+        foreground: "#71717A",
+      },
+      accent: {
+        DEFAULT: "#F4F4F5",
+        foreground: "#18181B",
+      },
+      border: "#E4E4E7",
+      input: "#E4E4E7",
+      ring: "#0F766E",
+      
+      // Special app colors
+      sideNav: "#1E293B",
+      "light-bg": "#F1F5F9",
+    },
+  },
+  plugins: [],
+};
