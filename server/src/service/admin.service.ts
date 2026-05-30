@@ -177,52 +177,58 @@ const getVehicleInterestInsights = async (
     relations: ["vehicle", "buyer", "buyer.auth"],
   });
 
-  const buyersByVehicle = new Map<
+  // Separate renters (from completed bookings) and purchasers (from buy/sell transactions)
+  const rentersByVehicle = new Map<
+    number,
+    Map<number, { id: number; name: string; email: string | null }>
+  >();
+
+  const purchasersByVehicle = new Map<
     number,
     Map<number, { id: number; name: string; email: string | null }>
   >();
 
   completedBookings.forEach((booking) => {
     const vehicleId = booking.vehicle?.id;
-    const buyerId = booking.user?.id;
+    const renterId = booking.user?.id;
 
-    if (!vehicleId || !buyerId || !booking.user) return;
+    if (!vehicleId || !renterId || !booking.user) return;
     const resolvedBookingUserId = booking.user.id;
     if (resolvedBookingUserId == null) return;
 
-    const buyerName = booking.user.name || "Unknown";
-    const buyerEmail = booking.user.auth?.email || null;
+    const renterName = booking.user.name || "Unknown";
+    const renterEmail = booking.user.auth?.email || null;
 
-    if (!buyersByVehicle.has(vehicleId)) {
-      buyersByVehicle.set(vehicleId, new Map());
+    if (!rentersByVehicle.has(vehicleId)) {
+      rentersByVehicle.set(vehicleId, new Map());
     }
 
-    buyersByVehicle.get(vehicleId)?.set(buyerId, {
+    rentersByVehicle.get(vehicleId)?.set(renterId, {
       id: resolvedBookingUserId,
-      name: buyerName,
-      email: buyerEmail,
+      name: renterName,
+      email: renterEmail,
     });
   });
 
   buySellTransactions.forEach((transaction) => {
     const vehicleId = transaction.vehicle?.id || transaction.vehicleId;
-    const buyerId = transaction.buyer?.id || transaction.buyerId;
+    const purchaserId = transaction.buyer?.id || transaction.buyerId;
 
-    if (!vehicleId || !buyerId || !transaction.buyer) return;
+    if (!vehicleId || !purchaserId || !transaction.buyer) return;
     const resolvedTransactionBuyerId = transaction.buyer.id;
     if (resolvedTransactionBuyerId == null) return;
 
-    const buyerName = transaction.buyer.name || "Unknown";
-    const buyerEmail = transaction.buyer.auth?.email || null;
+    const purchaserName = transaction.buyer.name || "Unknown";
+    const purchaserEmail = transaction.buyer.auth?.email || null;
 
-    if (!buyersByVehicle.has(vehicleId)) {
-      buyersByVehicle.set(vehicleId, new Map());
+    if (!purchasersByVehicle.has(vehicleId)) {
+      purchasersByVehicle.set(vehicleId, new Map());
     }
 
-    buyersByVehicle.get(vehicleId)?.set(buyerId, {
+    purchasersByVehicle.get(vehicleId)?.set(purchaserId, {
       id: resolvedTransactionBuyerId,
-      name: buyerName,
-      email: buyerEmail,
+      name: purchaserName,
+      email: purchaserEmail,
     });
   });
 
@@ -241,8 +247,12 @@ const getVehicleInterestInsights = async (
         .map((id) => interestedUserById.get(id))
         .filter(Boolean);
 
-      const buyersList = Array.from(
-        buyersByVehicle.get(vehicleId)?.values() || [],
+      const rentersList = Array.from(
+        rentersByVehicle.get(vehicleId)?.values() || [],
+      );
+
+      const purchasersList = Array.from(
+        purchasersByVehicle.get(vehicleId)?.values() || [],
       );
 
       const viewersList = Array.from(
@@ -265,8 +275,10 @@ const getVehicleInterestInsights = async (
         viewedUsers: viewersList,
         interestedUsersCount: interestedIds.length,
         interestedUsers: interestedUsersList,
-        buyersCount: buyersList.length,
-        buyers: buyersList,
+        rentalsCount: rentersList.length,
+        renters: rentersList,
+        purchasesCount: purchasersList.length,
+        purchasers: purchasersList,
       };
     })
     .filter(Boolean)
@@ -291,11 +303,23 @@ const getVehicleInterestInsights = async (
 
   const vehiclesWithViews = viewersByVehicle.size;
 
+  const totalRentals = Array.from(rentersByVehicle.values()).reduce(
+    (sum, m) => sum + (m?.size || 0),
+    0,
+  );
+
+  const totalPurchases = Array.from(purchasersByVehicle.values()).reduce(
+    (sum, m) => sum + (m?.size || 0),
+    0,
+  );
+
   return {
     totalVehicleViews,
     vehiclesWithViews,
     totalVehicleInterests,
     vehiclesWithInterest: interestedUserIdsByVehicle.size,
+    totalRentals,
+    totalPurchases,
     vehicleInterestInsights,
   };
 };

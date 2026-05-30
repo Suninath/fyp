@@ -29,7 +29,6 @@ import {
 const initialState = {
   dashboardStats: {
     totalUsers: 0,
-    totalStores: 0,
     totalVehicles: 0,
     totalRevenue: 0,
     pendingPaymentAmount: 0,

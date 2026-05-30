@@ -70,7 +70,8 @@ const AdminInsightsPage = () => {
 
   const interestedUserRows = useMemo(() => {
     return vehicleInsights.flatMap((insight) => {
-      const buyers = new Set((insight?.buyers || []).map((buyer) => buyer?.id));
+      const renters = new Set((insight?.renters || []).map((r) => r?.id));
+      const purchasers = new Set((insight?.purchasers || []).map((p) => p?.id));
 
       return (insight?.interestedUsers || []).map((user) => ({
         key: `${insight?.vehicleId}-${user?.id}`,
@@ -82,7 +83,8 @@ const AdminInsightsPage = () => {
         userId: user?.id,
         userName: user?.name || "Unknown User",
         userEmail: user?.email || "N/A",
-        isBuyer: buyers.has(user?.id),
+        isRenter: renters.has(user?.id),
+        isPurchaser: purchasers.has(user?.id),
       }));
     });
   }, [vehicleInsights]);
@@ -187,6 +189,54 @@ const AdminInsightsPage = () => {
           </Card>
         </div>
 
+        {/* Compact Top Vehicles */}
+        <Card className="bg-white border border-gray-200 shadow-sm rounded-xl">
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              <span className="flex items-center gap-2">
+                <PieChartIcon size={18} className="text-purple" />
+                Top Vehicles (by interest)
+              </span>
+              <span className="text-sm text-gray-500">Top 5</span>
+            </CardTitle>
+            <CardDescription className="text-sm">Most engaged vehicles — unique interested users first, then views.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {vehicleInsights.length === 0 ? (
+              <div className="text-center py-6 text-gray-500">No vehicle interest data available.</div>
+            ) : (
+              <div className="space-y-3">
+                {vehicleInsights.slice(0, 5).map((item, idx) => (
+                  <div key={item.vehicleId} className="flex items-center justify-between p-3 rounded-lg border border-gray-100">
+                    <div className="flex-1 min-w-0">
+                      <div className="font-semibold text-gray-900 truncate">{idx + 1}. {item.vehicleName}</div>
+                      <div className="text-xs text-gray-500 truncate">{item.make} {item.model} {item.year ? `• ${item.year}` : ""}</div>
+                    </div>
+                    <div className="flex items-center gap-3 ml-4">
+                      <div className="text-center">
+                        <div className="text-sm font-semibold text-gray-900">{item.interestedUsersCount || 0}</div>
+                        <div className="text-xs text-gray-500">Interested</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-sm font-semibold text-gray-900">{item.totalViews || 0}</div>
+                        <div className="text-xs text-gray-500">Views</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-sm font-semibold text-gray-900">{(item.rentalsCount || 0)}</div>
+                        <div className="text-xs text-gray-500">Rented</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-sm font-semibold text-gray-900">{(item.purchasesCount || 0)}</div>
+                        <div className="text-xs text-gray-500">Purchased</div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
         <Card className="bg-white border border-gray-200 shadow-sm rounded-xl">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -283,12 +333,14 @@ const AdminInsightsPage = () => {
                         <TableCell className="text-center">
                           <span
                             className={`inline-flex px-2 py-1 rounded-full text-xs font-semibold ${
-                              row.isBuyer
+                              row.isPurchaser
+                                ? "bg-indigo/10 text-indigo"
+                                : row.isRenter
                                 ? "bg-green/10 text-green"
                                 : "bg-gray-100 text-gray-600"
                             }`}
                           >
-                            {row.isBuyer ? "Bought" : "Not yet"}
+                            {row.isPurchaser ? "Purchased" : row.isRenter ? "Rented" : "Not yet"}
                           </span>
                         </TableCell>
                       </TableRow>

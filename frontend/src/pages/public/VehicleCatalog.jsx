@@ -185,7 +185,7 @@ const VehicleCatalog = () => {
   const categoryParam = searchParams.get("type"); // 'Buy/Sell' or 'Rent'
 
   const { publicVehicles, loading, publicPagination } = useSelector((state) => state.vehicle);
-  const { user } = useSelector((state) => state.auth);
+  const { user, role } = useSelector((state) => state.auth);
   const { comparedVehicles } = useSelector((state) => state.comparison);
   const { toggleFavorite, isFavorite } = useFavorites();
 
@@ -509,7 +509,7 @@ const VehicleCatalog = () => {
             <p className="text-sm md:text-base text-gray-600">Find the perfect vehicle for your needs</p>
           </div>
           <div className="flex gap-2 flex-col sm:flex-row w-full sm:w-auto">
-            {isUserVerified(user) && (
+            {(categoryParam !== "rent" || role === "admin") && (
               <Button
                 onClick={() => navigate("/user/create-vehicle")}
                 className="flex items-center gap-2 px-3 md:px-4 py-2 bg-secondary text-white rounded-lg hover:bg-emerald-700 transition-colors text-sm md:text-base w-full sm:w-auto justify-center"

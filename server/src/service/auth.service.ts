@@ -94,10 +94,26 @@ const authService = {
   /* ===================== REGISTER USER ===================== */
   async register(req: Request) {
     try {
-      const { name, email, phoneNumber, password } = req.body;
+      const {
+        name,
+        email,
+        phoneNumber,
+        password,
+        termsAccepted,
+        privacyAccepted,
+        personalDataConsent,
+      } = req.body;
 
       if (!name || !email || !phoneNumber || !password) {
         return { status: false, code: 400, message: "All fields required" };
+      }
+
+      if (!termsAccepted || !privacyAccepted || !personalDataConsent) {
+        return {
+          status: false,
+          code: 400,
+          message: "You must accept the Terms, Privacy Policy, and personal data consent",
+        };
       }
 
       const normalizedPhone = String(phoneNumber).trim();
@@ -127,7 +143,16 @@ const authService = {
       const hashedPassword = await hashPassword(password);
 
       /* SAVE USER FIRST */
-      const user = userRepository.create({ name, phoneNumber: normalizedPhone });
+      const consentAt = new Date();
+      const user = userRepository.create({
+        name,
+        phoneNumber: normalizedPhone,
+        termsAccepted: Boolean(termsAccepted),
+        privacyAccepted: Boolean(privacyAccepted),
+        personalDataConsent: Boolean(personalDataConsent),
+        consentVersion: "1.0",
+        consentAt,
+      });
       await userRepository.save(user);
 
       /* THEN SAVE AUTH */
@@ -351,6 +376,11 @@ const authService = {
           rejectionReason: userDetails.auth.rejectionReason,
           phoneNumber: userDetails.phoneNumber,
           userType: userDetails.userType,
+          termsAccepted: userDetails.termsAccepted,
+          privacyAccepted: userDetails.privacyAccepted,
+          personalDataConsent: userDetails.personalDataConsent,
+          consentVersion: userDetails.consentVersion,
+          consentAt: userDetails.consentAt,
           createdAt: userDetails.createdAt,
         },
       };

@@ -21,6 +21,7 @@ const PhoneInput = ({
   disabled = false,
   required = false,
   showCountryCode = true,
+  showValidationIndicator = true,
   ...props
 }) => {
   const phoneState = getPhoneValidationState(value);
@@ -69,7 +70,7 @@ const PhoneInput = ({
           />
         </div>
 
-        {phoneState.isValid ? (
+        {phoneState.isValid && showValidationIndicator ? (
           <div className="flex items-center gap-1.5 text-sm font-medium text-green-600 sm:shrink-0">
             <CheckCircle2 className="h-4 w-4" />
             <span>Valid phone number</span>

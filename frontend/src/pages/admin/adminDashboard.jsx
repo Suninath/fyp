@@ -210,7 +210,6 @@ const AdminDashboard = () => {
   /* ---------------- DASHBOARD ---------------- */
   const barData = [
     { name: "Users", count: dashboardStats?.totalUsers || 0 },
-    { name: "Stores", count: dashboardStats?.totalStores || 0 },
     { name: "Vehicles", count: dashboardStats?.totalVehicles || 0 }
   ];
 
@@ -309,7 +308,6 @@ const AdminDashboard = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               {[
                 { label: "Total Users", value: dashboardStats?.totalUsers, icon: Users, color: "text-blue-600" },
-                { label: "Stores", value: dashboardStats?.totalStores, icon: Store, color: "text-green-600" },
                 { label: "Vehicles", value: dashboardStats?.totalVehicles, icon: Car, color: "text-purple" },
                 { label: "Revenue", value: `$${dashboardStats?.totalRevenue || 0}`, icon: DollarSign, color: "text-yellow-600" }
               ].map(({ label, value, icon: Icon, color }) => (

@@ -28,6 +28,21 @@ export class UserEntity extends BaseEntity {
   @Column({ name: "profile_image", type: "text", nullable: true })
   profileImage?: string;
 
+  @Column({ name: "terms_accepted", default: false })
+  termsAccepted: boolean;
+
+  @Column({ name: "privacy_accepted", default: false })
+  privacyAccepted: boolean;
+
+  @Column({ name: "personal_data_consent", default: false })
+  personalDataConsent: boolean;
+
+  @Column({ name: "consent_version", length: 50, nullable: true })
+  consentVersion?: string;
+
+  @Column({ name: "consent_at", type: "timestamp", nullable: true })
+  consentAt?: Date;
+
   @Column({ name: "is_online", default: false })
   isOnline: boolean;
 

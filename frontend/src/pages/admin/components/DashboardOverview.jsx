@@ -173,10 +173,9 @@ const DashboardOverview = () => {
     <AdminLayout activeTab="dashboard">
       <div className="space-y-8">
         {/* KPI Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {[
             { label: "Total Users", value: dashboardStats?.totalUsers || 0, icon: Users, bgColor: "bg-blue/10", iconColor: "text-blue", loading: loading },
-            { label: "Total Stores", value: dashboardStats?.totalStores || 0, icon: Store, bgColor: "bg-green/10", iconColor: "text-green", loading: loading },
             { label: "Total Vehicles", value: dashboardStats?.totalVehicles || 0, icon: Car, bgColor: "bg-purple/10", iconColor: "text-purple", loading: loading }
           ].map(({ label, value, icon: Icon, bgColor, iconColor, loading: itemLoading }) => (
             <Card key={label} className="bg-white border border-gray-200 shadow-sm hover:shadow-lg transition-all duration-300 rounded-xl overflow-hidden">

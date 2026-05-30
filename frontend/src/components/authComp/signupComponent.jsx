@@ -36,6 +36,15 @@ function SignupComponent() {
       .string()
       .required("Re-type your password")
       .oneOf([yup.ref("password"), null], "Passwords must match"),
+    termsAccepted: yup
+      .boolean()
+      .oneOf([true], "You must accept the Terms of Service"),
+    privacyAccepted: yup
+      .boolean()
+      .oneOf([true], "You must accept the Privacy Policy"),
+    personalDataConsent: yup
+      .boolean()
+      .oneOf([true], "You must consent to the use of your personal information"),
   });
 
   const {
@@ -51,6 +60,9 @@ function SignupComponent() {
       phoneNumber: "",
       password: "",
       confirmpassword: "",
+      termsAccepted: false,
+      privacyAccepted: false,
+      personalDataConsent: false,
     },
   });
 
@@ -147,6 +159,8 @@ function SignupComponent() {
                   required
                   className="space-y-1"
                   inputClassName="mt-1"
+                  showCountryCode={false}
+                  showValidationIndicator={false}
                 />
               )}
             />
@@ -189,6 +203,49 @@ function SignupComponent() {
                 {showConfirmPassword ? "Hide" : "Show"}
               </button>
               <p className="mt-1 text-xs text-red min-h-[1rem]">{errors.confirmpassword?.message || " "}</p>
+            </div>
+
+            {/* Consent */}
+            <div className="space-y-2 rounded-lg border border-gray-200 bg-gray-50 p-3">
+              <p className="text-sm font-medium text-gray-800">Consent to use your information</p>
+
+              <label className="flex items-start gap-2 text-sm text-gray-700">
+                <input
+                  type="checkbox"
+                  {...register("termsAccepted")}
+                  className="mt-1 h-4 w-4 rounded border-gray-300 text-purple focus:ring-purple"
+                />
+                <span>I agree to the Terms of Service.</span>
+              </label>
+              <p className="text-xs text-red min-h-[1rem]">{errors.termsAccepted?.message || " "}</p>
+
+              <label className="flex items-start gap-2 text-sm text-gray-700">
+                <input
+                  type="checkbox"
+                  {...register("privacyAccepted")}
+                  className="mt-1 h-4 w-4 rounded border-gray-300 text-purple focus:ring-purple"
+                />
+                <span>I agree to the Privacy Policy.</span>
+              </label>
+              <p className="text-xs text-red min-h-[1rem]">{errors.privacyAccepted?.message || " "}</p>
+
+              <label className="flex items-start gap-2 text-sm text-gray-700">
+                <input
+                  type="checkbox"
+                  {...register("personalDataConsent")}
+                  className="mt-1 h-4 w-4 rounded border-gray-300 text-purple focus:ring-purple"
+                />
+                <span>
+                  I consent to the collection and use of my personal information to create and manage my account.
+                </span>
+              </label>
+              <p className="text-xs text-red min-h-[1rem]">
+                {errors.personalDataConsent?.message || " "}
+              </p>
+
+              <p className="text-xs text-gray-500">
+                We use your information only to provide and manage your account.
+              </p>
             </div>
 
             {/* Submit Button */}

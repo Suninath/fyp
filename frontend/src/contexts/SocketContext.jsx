@@ -38,9 +38,16 @@ export const SocketProvider = ({ children }) => {
       return;
     }
 
+    const token = typeof window !== "undefined" ? localStorage.getItem("authToken") : null;
+
     // Don't create new socket if one already exists and is connected
     if (socketRef.current?.connected) {
       console.log("Socket already connected, skipping reconnection");
+      return;
+    }
+
+    if (!token) {
+      console.warn("Socket connection skipped - no authToken found");
       return;
     }
 
@@ -49,6 +56,7 @@ export const SocketProvider = ({ children }) => {
     console.log("🔌 Connecting to socket server at:", socketUrl);
     
     const newSocket = io(socketUrl, {
+      auth: { token },
       transports: ["websocket", "polling"],
       withCredentials: true,
       reconnection: true,

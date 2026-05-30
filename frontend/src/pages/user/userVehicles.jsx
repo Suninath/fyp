@@ -379,14 +379,7 @@ const UserVehiclesPage = () => {
                 <p className="text-gray-600 mb-6">
                   {searchTerm ? 'No vehicles match your search criteria.' : 'You haven\'t listed any vehicles yet.'}
                 </p>
-                <Button
-                  variant="secondary"
-                  onClick={handleNavigateCreateVehicle}
-                  className="flex-none px-5 py-2.5 rounded-lg font-semibold flex items-center gap-2"
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add Your First Vehicle
-                </Button>
+                {/* Add Your First Vehicle button removed as requested */}
               </div>
             </CardContent>
           </Card>

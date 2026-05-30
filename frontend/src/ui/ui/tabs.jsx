@@ -69,7 +69,7 @@ const TabsTrigger = ({ className, children, value, activeTab, setActiveTab, disa
   </button>
 )
 
-const TabsContent = ({ className, children, value, activeTab, ...props }) => {
+const TabsContent = ({ className, children, value, activeTab, setActiveTab, ...props }) => {
   if (activeTab !== value) return null
   
   return (
